@@ -1,0 +1,5 @@
+0.0
+===
+
+Primera versión compilable de la librería.
+Aún queda pendiente la implementación de la ejecución de las instrucciones, y revisar todo la librería para quitar elementos no usados ya que esta libraría se ha creado a partir de la librería PicUtils.
