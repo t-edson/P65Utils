@@ -85,7 +85,7 @@ type //Models for RAM memory
 
   TCPURam = array of TCPURamCell;
   TCPURamPtr = ^TCPURam;
-  TCPURutExplorRAM = procedure(offs, bnk: byte; regPtr: TCPURamCellPtr) of object;
+  TCPURutExplorRAM = procedure(offs: word; regPtr: TCPURamCellPtr) of object;
 
 type
 

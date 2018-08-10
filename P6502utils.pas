@@ -16,7 +16,7 @@ unit P6502utils;
 {$mode objfpc}{$H+}
 interface
 uses
-  Classes, SysUtils, LCLProc, PicCore;
+  Classes, SysUtils, LCLProc, CPUCore;
 type  //Instructions set
   TP6502Inst = (
     i_ADC,  //add with carry
@@ -141,7 +141,7 @@ const  //Constants of address and bit positions for some registers
 type
   {Objeto que representa al hardware de un PIC de la serie 16}
   { TP6502 }
-  TP6502 = class(TPicCore)
+  TP6502 = class(TCPUCore)
   public  //Campos para desensamblar instrucciones
     idIns: TP6502Inst;    //ID de Instrucción.
     modIns: TP6502AddMode; //Modo de direccionamiento
@@ -198,7 +198,7 @@ type
     function GetFreeBytes(const size: integer; var addr: word): boolean;  //obtiene una dirección libre
     function TotalMemRAM: word; //devuelve el total de memoria RAM
     function UsedMemRAM: word;  //devuelve el total de memoria RAM usada
-    procedure ExploreUsed(rutExplorRAM: TPICRutExplorRAM);    //devuelve un reporte del uso de la RAM
+    procedure ExploreUsed(rutExplorRAM: TCPURutExplorRAM);    //devuelve un reporte del uso de la RAM
     function ValidRAMaddr(addr: word): boolean;  //indica si una posición de memoria es válida
   public  //Métodos para codificar instrucciones de acuerdo a la sintaxis
     procedure useRAM;
@@ -1126,14 +1126,14 @@ begin
     end;
   end;
 end;
-procedure TP6502.ExploreUsed(rutExplorRAM: TPICRutExplorRAM);
+procedure TP6502.ExploreUsed(rutExplorRAM: TCPURutExplorRAM);
 {Genera un reporte de uso de RAM}
 var
   i: Integer;
 begin
   for i := 0 to CPUMAXRAM - 1 do begin
     if ram[i].AvailGPR and (ram[i].used) then begin
-      rutExplorRAM(i, 0, @ram[i]);
+      rutExplorRAM(i, @ram[i]);
     end;
   end;
 end;
