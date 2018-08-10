@@ -28,11 +28,12 @@
         <LoadedDesigner Value="True"/>
       </Unit1>
       <Unit2>
-        <Filename Value="..\p6502utils.pas"/>
-        <UnitName Value="P6502utils"/>
+        <Filename Value="..\P6502utils.pas"/>
         <IsVisibleTab Value="True"/>
         <EditorIndex Value="1"/>
-        <FoldState Value=" TL00C1414113 T4H01 T5J0{W11]ACjEK5 T7jPJC T8jQ26132 T3m8051]ZD2]E0nFD7I2K T6n601D THnEF%2?"/>
+        <TopLine Value="1115"/>
+        <CursorPos X="24" Y="1136"/>
+        <FoldState Value=" TL00C1414113 T5J0{W111 TCjEK5 T7jPJC T8jQ26132 T3m8051]ZD2]E0nFD7I2K T6n601]gHnEF%2L"/>
         <UsageCount Value="32"/>
         <Bookmarks Count="1">
           <Item0 Y="1211" ID="1"/>
@@ -42,8 +43,8 @@
       <Unit3>
         <Filename Value="..\CPUCore.pas"/>
         <EditorIndex Value="2"/>
-        <TopLine Value="472"/>
-        <CursorPos X="6" Y="486"/>
+        <TopLine Value="37"/>
+        <CursorPos X="42" Y="88"/>
         <FoldState Value=" TL0040211193 T4801 T5A[64CED8 T7dC6 T8iE230122145 T3kX0331]mHl8B4]i6lI01A T0leR3C pjAjYN3857 TDmZ2e]ZEnU]+'"/>
         <UsageCount Value="25"/>
         <Bookmarks Count="1">
@@ -59,90 +60,122 @@
         <UsageCount Value="10"/>
       </Unit4>
     </Units>
-    <JumpHistory Count="22" HistoryIndex="21">
+    <JumpHistory Count="30" HistoryIndex="29">
       <Position1>
         <Filename Value="..\p6502utils.pas"/>
-        <Caret Line="1223" Column="3" TopLine="1169"/>
+        <Caret Line="363" Column="17" TopLine="254"/>
       </Position1>
       <Position2>
         <Filename Value="..\p6502utils.pas"/>
       </Position2>
       <Position3>
         <Filename Value="..\p6502utils.pas"/>
-        <Caret Line="208" Column="30" TopLine="167"/>
+        <Caret Line="226" TopLine="211"/>
       </Position3>
       <Position4>
         <Filename Value="..\p6502utils.pas"/>
-        <Caret Line="363" Column="17" TopLine="254"/>
       </Position4>
       <Position5>
         <Filename Value="..\p6502utils.pas"/>
+        <Caret Line="259" Column="21" TopLine="218"/>
       </Position5>
       <Position6>
         <Filename Value="..\p6502utils.pas"/>
-        <Caret Line="226" TopLine="211"/>
+        <Caret Line="355" Column="65" TopLine="252"/>
       </Position6>
       <Position7>
         <Filename Value="..\p6502utils.pas"/>
+        <Caret Line="368" Column="5" TopLine="265"/>
       </Position7>
       <Position8>
         <Filename Value="..\p6502utils.pas"/>
-        <Caret Line="259" Column="21" TopLine="218"/>
+        <Caret Line="373" Column="32" TopLine="265"/>
       </Position8>
       <Position9>
         <Filename Value="..\p6502utils.pas"/>
-        <Caret Line="355" Column="65" TopLine="252"/>
+        <Caret Line="1060" Column="49" TopLine="963"/>
       </Position9>
       <Position10>
         <Filename Value="..\p6502utils.pas"/>
-        <Caret Line="368" Column="5" TopLine="265"/>
+        <Caret Line="1085" Column="49" TopLine="1064"/>
       </Position10>
       <Position11>
         <Filename Value="..\p6502utils.pas"/>
-        <Caret Line="373" Column="32" TopLine="265"/>
       </Position11>
       <Position12>
         <Filename Value="..\p6502utils.pas"/>
-        <Caret Line="1060" Column="49" TopLine="963"/>
+        <Caret Line="370" Column="8" TopLine="354"/>
       </Position12>
       <Position13>
         <Filename Value="..\p6502utils.pas"/>
-        <Caret Line="1085" Column="49" TopLine="1064"/>
+        <Caret Line="369" Column="28" TopLine="354"/>
       </Position13>
       <Position14>
         <Filename Value="..\p6502utils.pas"/>
+        <Caret Line="1148" TopLine="1141"/>
       </Position14>
       <Position15>
         <Filename Value="..\p6502utils.pas"/>
-        <Caret Line="370" Column="8" TopLine="354"/>
+        <Caret Line="207" Column="33" TopLine="180"/>
       </Position15>
       <Position16>
         <Filename Value="..\p6502utils.pas"/>
-        <Caret Line="369" Column="28" TopLine="354"/>
       </Position16>
       <Position17>
         <Filename Value="..\p6502utils.pas"/>
-        <Caret Line="1148" TopLine="1141"/>
+        <Caret Line="1077" Column="62" TopLine="957"/>
       </Position17>
       <Position18>
         <Filename Value="..\p6502utils.pas"/>
-        <Caret Line="207" Column="33" TopLine="180"/>
+        <Caret Line="1446" Column="12" TopLine="1155"/>
       </Position18>
       <Position19>
-        <Filename Value="..\p6502utils.pas"/>
-      </Position19>
-      <Position20>
-        <Filename Value="..\p6502utils.pas"/>
-        <Caret Line="1077" Column="62" TopLine="957"/>
-      </Position20>
-      <Position21>
-        <Filename Value="..\p6502utils.pas"/>
-        <Caret Line="1446" Column="12" TopLine="1155"/>
-      </Position21>
-      <Position22>
         <Filename Value="..\CPUCore.pas"/>
         <Caret Line="155" Column="6" TopLine="121"/>
+      </Position19>
+      <Position20>
+        <Filename Value="..\P6502utils.pas"/>
+        <Caret Line="152" Column="18"/>
+      </Position20>
+      <Position21>
+        <Filename Value="..\P6502utils.pas"/>
+        <Caret Line="19" Column="38"/>
+      </Position21>
+      <Position22>
+        <Filename Value="..\P6502utils.pas"/>
+        <Caret Line="144" Column="26" TopLine="20"/>
       </Position22>
+      <Position23>
+        <Filename Value="..\P6502utils.pas"/>
+        <Caret Line="201" Column="42" TopLine="180"/>
+      </Position23>
+      <Position24>
+        <Filename Value="..\CPUCore.pas"/>
+        <Caret Line="88" Column="3" TopLine="71"/>
+      </Position24>
+      <Position25>
+        <Filename Value="..\P6502utils.pas"/>
+        <Caret Line="1129" Column="48" TopLine="1113"/>
+      </Position25>
+      <Position26>
+        <Filename Value="..\CPUCore.pas"/>
+        <Caret Line="88" Column="16" TopLine="71"/>
+      </Position26>
+      <Position27>
+        <Filename Value="..\CPUCore.pas"/>
+      </Position27>
+      <Position28>
+        <Filename Value="..\P6502utils.pas"/>
+        <Caret Line="1129" Column="48" TopLine="1113"/>
+      </Position28>
+      <Position29>
+        <Filename Value="..\CPUCore.pas"/>
+        <Caret Line="88" Column="42" TopLine="37"/>
+      </Position29>
+      <Position30>
+        <Filename Value="..\P6502utils.pas"/>
+        <Caret Line="1134" Column="7" TopLine="1115"/>
+      </Position30>
     </JumpHistory>
   </ProjectSession>
 </CONFIG>
