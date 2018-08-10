@@ -61,7 +61,7 @@ type //Models for RAM memory
     procedure Setvalue(AValue: byte);
   public
     addr   : word;       //dirección física de memoria, en donde está la celda.
-    name   : string;     //Name of the register (or variable)
+    name   : string;     //Name of the register (for variables)
     used   : boolean;    //Indicates if have been written
     shared : boolean;    //Used to share this register
     state  : TCPUCellState; //Status of the cell

@@ -16,7 +16,7 @@ unit P6502utils;
 {$mode objfpc}{$H+}
 interface
 uses
-  Classes, SysUtils, LCLProc, CPUCore;
+  Classes, SysUtils, LCLProc, CPUCore, strutils;
 type  //Instructions set
   TP6502Inst = (
     i_ADC,  //add with carry
@@ -203,6 +203,8 @@ type
   public  //Métodos para codificar instrucciones de acuerdo a la sintaxis
     procedure useRAM;
     procedure codAsmFD(const inst: TP6502Inst; addMode: TP6502AddMode; param: word);
+    procedure codGotoAt(iRam0: integer; const k: word);
+    procedure codCallAt(iRam0: integer; const k: word);
     function codInsert(iRam0, nInsert, nWords: integer): boolean;
   public  //Métodos adicionales
     function FindOpcode(Op: string): TP6502Inst;  //busca Opcode
@@ -348,6 +350,29 @@ begin
     raise Exception.Create('Implementation Error.');
   end;
 end;
+
+procedure TP6502.codGotoAt(iRam0: integer; const k: word);
+{Codifica una instrucción GOTO, en una posición específica y sin alterar el puntero "iFlash"
+actual. Se usa para completar saltos indefinidos}
+var
+  rInst: TP6502Instruct;
+begin
+  rInst := PIC16InstName[i_JMP];
+  ram[iRam0].value   := rInst.instrInform[aAbsolute].Opcode;
+  ram[iRam0+1].value := lo(k);
+  ram[iRam0+2].value := hi(k);
+end;
+
+procedure TP6502.codCallAt(iRam0: integer; const k: word);
+{Codifica una instrucción i_CALL, en una posición específica y sin alterar el puntero "iFlash"
+actual. Se usa para completar llamadas indefinidas}
+var
+  rInst: TP6502Instruct;
+begin
+  rInst := PIC16InstName[i_JSR];
+  ram[iRam0].value := rInst.instrInform[aAbsolute].Opcode;
+end;
+
 function TP6502.codInsert(iRam0, nInsert, nWords: integer): boolean;
 {Inserta en la posición iRam0, "nInsert" palabras, desplazando "nWords" palabras.
 Al final debe quedar "nInsert" palabras de espacio libre en iRam0.
@@ -1175,10 +1200,28 @@ var
   i: Word;
   lblLin, comLat, comLin, lin: String;
   nBytes: byte;
+const
+  SPACEPAD = '      ';
 begin
   //Se supone que minUsed y maxUsed, ya deben haber sido actualizados.
+  if incAdrr then begin
+    lOut.Add(SPACEPAD + '      ORG $' + IntToHex(minUsed, 4));
+  end else begin
+    lOut.Add(SPACEPAD + 'ORG $' + IntToHex(minUsed, 4));
+  end;
   i := minUsed;
   while i <= maxUsed do begin
+    //Verifica si es variable
+    if ram[i].name <> '' then begin
+      //Escribe en forma de variable
+      if incAdrr then begin
+        lOut.Add( PadRight(ram[i].name, Length(SPACEPAD)) + '$'+IntToHex(i,4) + ' DB ??');
+      end else begin
+        lOut.Add( PadRight(ram[i].name, Length(SPACEPAD)) + 'DB ??');
+      end;
+      i := i + 1;
+      continue;
+    end;
     //Lee comentarios y etiqueta
     lblLin := ram[i].topLabel;
     comLat := ram[i].sideComment;
@@ -1191,22 +1234,23 @@ begin
     end;
     //Decodifica instrucción
     lin := DisassemblerAt(i, nBytes, incVarNam);  //Instrucción
-    i := i + nBytes;
     //Verificas si incluye dirección física
     if incAdrr then  begin
-      lin := '0x'+IntToHex(i,3) + ' ' + lin;
+      lin := '$'+IntToHex(i,4) + ' ' + lin;
     end;
     //Verifica si incluye comentario lateral
     if incCom then begin
       lin := lin  + ' ' + comLat;
     end;
-    lOut.Add('    ' + lin);
+    lOut.Add(SPACEPAD + lin);
+    i := i + nBytes;   //Incrementa a siguiente instrucción
   end;
 end;
 constructor TP6502.Create;
 begin
   inherited Create;
   //Default hardware settings
+  Model := '6502';
   CPUMAXRAM   := 4096; //Máx RAM memory
   SetLength(ram, CPUMAXRAM);
   //inicia una configuración común
