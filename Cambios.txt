@@ -1,5 +1,10 @@
+0.1
+===
+Se eliminan algunos campos no usados, porque esta librería se ha creado a partir de la librería
+PicUtils que contiene más detalle en cuanto al hardware.
+Se corrige errores en el ejemplo de ensamblador.
+
 0.0
 ===
-
 Primera versión compilable de la librería.
 Aún queda pendiente la implementación de la ejecución de las instrucciones, y revisar todo la librería para quitar elementos no usados ya que esta libraría se ha creado a partir de la librería PicUtils.

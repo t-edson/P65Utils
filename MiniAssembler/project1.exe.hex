@@ -1,0 +1,4 @@
+poke 0,165
+poke 1,0
+poke 2,133
+poke 3,0

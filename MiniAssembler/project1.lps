@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <ProjectSession>
+    <PathDelim Value="\"/>
+    <Version Value="10"/>
+    <BuildModes Active="Default"/>
+    <Units Count="5">
+      <Unit0>
+        <Filename Value="project1.lpr"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="-1"/>
+        <TopLine Value="-1"/>
+        <CursorPos X="-1" Y="-1"/>
+        <UsageCount Value="60"/>
+      </Unit0>
+      <Unit1>
+        <Filename Value="unit1.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="Form1"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+        <UnitName Value="Unit1"/>
+        <TopLine Value="152"/>
+        <CursorPos Y="171"/>
+        <UsageCount Value="60"/>
+        <Loaded Value="True"/>
+        <LoadedDesigner Value="True"/>
+      </Unit1>
+      <Unit2>
+        <Filename Value="..\p6502utils.pas"/>
+        <UnitName Value="P6502utils"/>
+        <IsVisibleTab Value="True"/>
+        <EditorIndex Value="1"/>
+        <FoldState Value=" TL00C1414113 T4H01 T5J0{W11]ACjEK5 T7jPJC T8jQ26132 T3m8051]ZD2]E0nFD7I2K T6n601D THnEF%2?"/>
+        <UsageCount Value="32"/>
+        <Bookmarks Count="1">
+          <Item0 Y="1211" ID="1"/>
+        </Bookmarks>
+        <Loaded Value="True"/>
+      </Unit2>
+      <Unit3>
+        <Filename Value="..\CPUCore.pas"/>
+        <EditorIndex Value="2"/>
+        <TopLine Value="472"/>
+        <CursorPos X="6" Y="486"/>
+        <FoldState Value=" TL0040211193 T4801 T5A[64CED8 T7dC6 T8iE230122145 T3kX0331]mHl8B4]i6lI01A T0leR3C pjAjYN3857 TDmZ2e]ZEnU]+'"/>
+        <UsageCount Value="25"/>
+        <Bookmarks Count="1">
+          <Item0 Y="117" ID="3"/>
+        </Bookmarks>
+        <Loaded Value="True"/>
+      </Unit3>
+      <Unit4>
+        <Filename Value="C:\lazarus\lcl\include\control.inc"/>
+        <EditorIndex Value="-1"/>
+        <TopLine Value="2838"/>
+        <CursorPos Y="2861"/>
+        <UsageCount Value="10"/>
+      </Unit4>
+    </Units>
+    <JumpHistory Count="22" HistoryIndex="21">
+      <Position1>
+        <Filename Value="..\p6502utils.pas"/>
+        <Caret Line="1223" Column="3" TopLine="1169"/>
+      </Position1>
+      <Position2>
+        <Filename Value="..\p6502utils.pas"/>
+      </Position2>
+      <Position3>
+        <Filename Value="..\p6502utils.pas"/>
+        <Caret Line="208" Column="30" TopLine="167"/>
+      </Position3>
+      <Position4>
+        <Filename Value="..\p6502utils.pas"/>
+        <Caret Line="363" Column="17" TopLine="254"/>
+      </Position4>
+      <Position5>
+        <Filename Value="..\p6502utils.pas"/>
+      </Position5>
+      <Position6>
+        <Filename Value="..\p6502utils.pas"/>
+        <Caret Line="226" TopLine="211"/>
+      </Position6>
+      <Position7>
+        <Filename Value="..\p6502utils.pas"/>
+      </Position7>
+      <Position8>
+        <Filename Value="..\p6502utils.pas"/>
+        <Caret Line="259" Column="21" TopLine="218"/>
+      </Position8>
+      <Position9>
+        <Filename Value="..\p6502utils.pas"/>
+        <Caret Line="355" Column="65" TopLine="252"/>
+      </Position9>
+      <Position10>
+        <Filename Value="..\p6502utils.pas"/>
+        <Caret Line="368" Column="5" TopLine="265"/>
+      </Position10>
+      <Position11>
+        <Filename Value="..\p6502utils.pas"/>
+        <Caret Line="373" Column="32" TopLine="265"/>
+      </Position11>
+      <Position12>
+        <Filename Value="..\p6502utils.pas"/>
+        <Caret Line="1060" Column="49" TopLine="963"/>
+      </Position12>
+      <Position13>
+        <Filename Value="..\p6502utils.pas"/>
+        <Caret Line="1085" Column="49" TopLine="1064"/>
+      </Position13>
+      <Position14>
+        <Filename Value="..\p6502utils.pas"/>
+      </Position14>
+      <Position15>
+        <Filename Value="..\p6502utils.pas"/>
+        <Caret Line="370" Column="8" TopLine="354"/>
+      </Position15>
+      <Position16>
+        <Filename Value="..\p6502utils.pas"/>
+        <Caret Line="369" Column="28" TopLine="354"/>
+      </Position16>
+      <Position17>
+        <Filename Value="..\p6502utils.pas"/>
+        <Caret Line="1148" TopLine="1141"/>
+      </Position17>
+      <Position18>
+        <Filename Value="..\p6502utils.pas"/>
+        <Caret Line="207" Column="33" TopLine="180"/>
+      </Position18>
+      <Position19>
+        <Filename Value="..\p6502utils.pas"/>
+      </Position19>
+      <Position20>
+        <Filename Value="..\p6502utils.pas"/>
+        <Caret Line="1077" Column="62" TopLine="957"/>
+      </Position20>
+      <Position21>
+        <Filename Value="..\p6502utils.pas"/>
+        <Caret Line="1446" Column="12" TopLine="1155"/>
+      </Position21>
+      <Position22>
+        <Filename Value="..\CPUCore.pas"/>
+        <Caret Line="155" Column="6" TopLine="121"/>
+      </Position22>
+    </JumpHistory>
+  </ProjectSession>
+</CONFIG>
