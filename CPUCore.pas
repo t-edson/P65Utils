@@ -60,14 +60,13 @@ type //Models for RAM memory
     function Getvalue: byte;
     procedure Setvalue(AValue: byte);
   public
-    addr   : word;       //dirección física de memoria, en donde está la celda.
     name   : string;     //Name of the register (for variables)
     used   : boolean;    //Indicates if have been written
     shared : boolean;    //Used to share this register
     state  : TCPUCellState; //Status of the cell
     property value: byte read Getvalue write Setvalue;
     property dvalue: byte read Fvalue write Fvalue;   //Direct access to "Fvalue".
-    function AvailGPR: boolean;
+    function Avail: boolean;
   public  //Campos para deputación
     breakPnt  : boolean;  //Indicates if this cell have a Breakpoint
     {Be careful on the size of this record, because it's going to be multiplied by 64K}
@@ -94,7 +93,7 @@ type
   TCPUCore = class
   public //Limits
     {This variables are set just one time. So they work as constant.}
-    CPUMAXRAM   : word;  //Max virtual RAM used by the CPU
+    CPUMAXRAM: dword;  //Max virtual RAM used by the CPU
   public   //General fields
     Model    : string;    //modelo de PIC
     frequen  : integer;   //frecuencia del reloj
@@ -106,8 +105,8 @@ type
     CommStop: boolean;  //Bandera para detener la ejecución
     OnExecutionMsg: procedure(message: string) of object;  //Genera mensaje en ejecución
   protected  //Generation of HEX files
-    minUsed  : word;         //Dirección menor de la ROM usada
-    maxUsed  : word;         //Dirección mayor de la ROM usdas
+    minUsed  : dword;         //Dirección menor de la ROM usada
+    maxUsed  : dword;         //Dirección mayor de la ROM usdas
     hexLines : TStringList;  //Uusado para crear archivo *.hex
   public  //Memories
     ram    : TCPURam;   //memoria RAM
@@ -144,7 +143,7 @@ type
     procedure ExecTo(endAdd: word); virtual; abstract; //Ejecuta hasta cierta dirección
     procedure ExecStep; virtual; abstract; //Execute one instruction considering CALL as one instruction
     procedure ExecNCycles(nCyc: integer; out stopped: boolean); virtual; abstract; //Ejecuta hasta cierta dirección
-    procedure Reset; virtual; abstract;
+    procedure Reset(hard: boolean); virtual; abstract;
     function ReadPC: dword; virtual; abstract;  //Defined DWORD to cover the 18F PC register
     procedure WritePC(AValue: dword); virtual; abstract;
   public  //Others
@@ -168,7 +167,7 @@ procedure TCPURamCell.Setvalue(AValue: byte);
 begin
   Fvalue := AValue;
 end;
-function TCPURamCell.AvailGPR: boolean;
+function TCPURamCell.Avail: boolean;
 {Indica si el registro es una dirección disponible en la memoria RAM.}
 begin
   Result := (state = cs_impleGPR);
@@ -211,7 +210,6 @@ var
   i: word;
 begin
   for i:=0 to high(ram) do begin
-    ram[i].addr     := i;
     ram[i].state    := cs_unimplem;
   end;
   //Inicia estado de pines
@@ -542,7 +540,7 @@ end;
 constructor TCPUCore.Create;
 begin
   hexLines := TStringList.Create;
-  frequen := 4000000;    //4MHz
+  frequen := 1000000;    //4MHz
 end;
 destructor TCPUCore.Destroy;
 begin

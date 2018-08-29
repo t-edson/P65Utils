@@ -167,8 +167,7 @@ type
     W        : byte;   //Registro de trabajo
     PC       : TWordRec; //PC as record to fast access for bytes
     PCLATH   : byte;   //Contador de Programa H
-    STKPTR   : 0..7;   //Puntero de pila
-    STACK    : array[0..7] of word;
+    SP       : byte;   //Puntero de pila
     property STATUS: byte read GetSTATUS;
     property STATUS_Z: boolean read GetSTATUS_Z write SetSTATUS_Z;
     property STATUS_C: boolean read GetSTATUS_C write SetSTATUS_C;
@@ -184,32 +183,31 @@ type
     procedure ExecTo(endAdd: word); override; //Ejecuta hasta cierta dirección
     procedure ExecStep; override; //Execute one instruction considering CALL as one instruction
     procedure ExecNCycles(nCyc: integer; out stopped: boolean); override; //Ejecuta hasta cierta dirección
-    procedure Reset; override;
+    procedure Reset(hard: boolean); override;
     function ReadPC: dword; override;
     procedure WritePC(AValue: dword); override;
   public  //Memories
-    procedure Decode(const opCode: word);  //decodifica instrucción
-    function Disassembler(const opCode, par1, par2: byte; out nBytesProc: byte;
-      useVarName: boolean=false): string;  //Desensambla la instrucción actual
+    procedure Decode(const opCode: word);  //Decode instruction.
     function DisassemblerAt(addr: word; out nBytesProc: byte; useVarName: boolean
       ): string; override;
-  public  //Funciones para la memoria RAM
+  public  //RAM memory functions
     function GetFreeByte(out addr: word; shared: boolean): boolean;
     function GetFreeBytes(const size: integer; var addr: word): boolean;  //obtiene una dirección libre
-    function TotalMemRAM: word; //devuelve el total de memoria RAM
+    function TotalMemRAM: integer; //devuelve el total de memoria RAM
     function UsedMemRAM: word;  //devuelve el total de memoria RAM usada
     procedure ExploreUsed(rutExplorRAM: TCPURutExplorRAM);    //devuelve un reporte del uso de la RAM
     function ValidRAMaddr(addr: word): boolean;  //indica si una posición de memoria es válida
-  public  //Métodos para codificar instrucciones de acuerdo a la sintaxis
+  public  //Métthods to code instructions according to syntax
     procedure useRAM;
-    procedure codAsmFD(const inst: TP6502Inst; addMode: TP6502AddMode; param: word);
+    procedure codAsm(const inst: TP6502Inst; addMode: TP6502AddMode; param: word);
     procedure codGotoAt(iRam0: integer; const k: word);
     procedure codCallAt(iRam0: integer; const k: word);
     function codInsert(iRam0, nInsert, nWords: integer): boolean;
-  public  //Métodos adicionales
+  public  //Adicional methods
     function FindOpcode(Op: string): TP6502Inst;  //busca Opcode
-    procedure GenHex(hexFile: string; ConfigWord: integer = - 1);  //genera un archivo hex
-    procedure DumpCode(lOut: TStrings; incAdrr, incCom, incVarNam: boolean);  //vuelva en código que contiene
+    procedure GenHex(hexFile: string);  //genera un archivo hex
+    procedure DumpCodeAsm(lOut: TStrings; incAdrr, incValues, incCom,
+      incVarNam: boolean);
   public  //Initialization
     constructor Create; override;
     destructor Destroy; override;
@@ -254,20 +252,20 @@ procedure TP6502.useRAM;
 {Marca la posición actual, como usada, e incrementa el puntero iRam. Si hay error,
 actualiza el campo "MsjError"}
 begin
-  //Protección de desborde
-  if iRam >= CPUMAXRAM then begin
-    MsjError := 'RAM Memory limit exceeded.';
-    exit;
-  end;
   ram[iRam].used := true;  //marca como usado
   inc(iRam);
 end;
-procedure TP6502.codAsmFD(const inst: TP6502Inst; addMode: TP6502AddMode; param: word);
-{Codifica las instrucciones orientadas a registro, con sintAxis: NEMÓNICO f,d}
+procedure TP6502.codAsm(const inst: TP6502Inst; addMode: TP6502AddMode; param: word);
+{Rutina general para codificar instrucciones en ensamblador}
 var
   rInst: TP6502Instruct;
 begin
   rInst := PIC16InstName[inst];
+  //Overflow protection
+  if iRam >= CPUMAXRAM then begin
+    MsjError := 'RAM Memory limit exceeded.';
+    exit;
+  end;
   //Write OpCode
   ram[iRam].value := rInst.instrInform[addMode].Opcode;
   useRAM;  //marca como usado e incrementa puntero.
@@ -350,7 +348,6 @@ begin
     raise Exception.Create('Implementation Error.');
   end;
 end;
-
 procedure TP6502.codGotoAt(iRam0: integer; const k: word);
 {Codifica una instrucción GOTO, en una posición específica y sin alterar el puntero "iFlash"
 actual. Se usa para completar saltos indefinidos}
@@ -362,7 +359,6 @@ begin
   ram[iRam0+1].value := lo(k);
   ram[iRam0+2].value := hi(k);
 end;
-
 procedure TP6502.codCallAt(iRam0: integer; const k: word);
 {Codifica una instrucción i_CALL, en una posición específica y sin alterar el puntero "iFlash"
 actual. Se usa para completar llamadas indefinidas}
@@ -372,7 +368,6 @@ begin
   rInst := PIC16InstName[i_JSR];
   ram[iRam0].value := rInst.instrInform[aAbsolute].Opcode;
 end;
-
 function TP6502.codInsert(iRam0, nInsert, nWords: integer): boolean;
 {Inserta en la posición iRam0, "nInsert" palabras, desplazando "nWords" palabras.
 Al final debe quedar "nInsert" palabras de espacio libre en iRam0.
@@ -482,6 +477,7 @@ procedure TP6502.Decode(const opCode: word);
 {Decode the value of "opCode" and update:
 * "idIns" -> Instruction ID
 * "modIns" -> Address Mode
+If not found, returns "i_Inval" in "idIns".
 }
 var
   i : TP6502Inst;
@@ -497,91 +493,103 @@ begin
       if iInfom.Opcode = opCode then begin
         idIns := i;
         modIns := j;
+        exit;
       end;
     end;
   end;
+  //Not found
+  idIns := i_Inval;
 end;
-function TP6502.Disassembler(const opCode, par1, par2: byte;
-                             out nBytesProc: byte;
-                             useVarName: boolean = false): string;
-{Disassemble the instruction indicated in "Opcode". If the instruction is multibyte
-it will be used "par1" and "par2" according to the intruction length, which is returned
-in "nBytesProc".
+function TP6502.DisassemblerAt(addr: word; out nBytesProc: byte;
+                               useVarName: boolean): string;
+{Disassembler the instruction located at "addr". If the instruction is multibyte
+the intruction length, will be returned in "nBytesProc".
+
 Global variables used: "idIns", "modIns".
 "useVarName" -> Flag to use the name of the variable instead of only the address.
                 Valid only when a variAble name exists in his address.
 }
 var
   nemo: String;
-  f: word;
+  opCode, par1, par2: Byte;
 begin
+  if addr>CPUMAXRAM-1 then exit('');
+  opCode := ram[addr].value;
+  //"par1" and "par2" will be used according to the instruction length.
+  if addr+1>CPUMAXRAM-1 then exit('');
+  par1   := ram[addr+1].value;
   Decode(opCode);   //Decode instruction. Update: "idIns", "modIns".
   nemo := trim(PIC16InstName[idIns].name) + ' ';
   case modIns of
   aImplicit: begin
     nBytesProc := 1;  //No parameters needed
+    Result := nemo;
   end;
   aAcumulat: begin
     nBytesProc := 1;  //No parameters needed
+    Result := nemo;
   end;
   aImmediat: begin
     Result := nemo + '#$'+IntToHex(par1,2);
     nBytesProc := 2;
   end;
   aAbsolute: begin
-    Result := nemo + '$'+IntToHex(par1 + par2*256, 4);
     nBytesProc := 3;
+    if addr+2>CPUMAXRAM-1 then exit('');
+    par2   := ram[addr+2].value;
+    Result := nemo + '$'+IntToHex(par1 + par2*256, 4);
   end;
   aZeroPage: begin
     Result := nemo + '$'+IntToHex(par1, 2);
     nBytesProc := 2;
   end;
   aRelative: begin
-    Result := nemo + '$'+IntToHex(par1, 2);
     nBytesProc := 2;
+    if par1<128 then begin  //Positive
+      Result := nemo + '$'+IntToHex((addr + par1+2) and $FFFF, 4);
+    end else begin
+      Result := nemo + '$'+IntToHex((addr + par1-254) and $FFFF, 4);
+    end;
+    //Result := nemo + '$'+IntToHex(par1, 2);
   end;
   aIndirect: begin
-    Result := nemo + '$('+IntToHex(par1 + par2*256, 4)+')';
     nBytesProc := 3;
+    if addr+2>CPUMAXRAM-1 then exit('');
+    par2   := ram[addr+2].value;
+    Result := nemo + '$('+IntToHex(par1 + par2*256, 4)+')';
   end;
   aAbsolutX: begin
-    Result := nemo + '$'+IntToHex(par1 + par2*256, 4)+',X';
     nBytesProc := 3;
+    if addr+2>CPUMAXRAM-1 then exit('');
+    par2   := ram[addr+2].value;
+    Result := nemo + '$'+IntToHex(par1 + par2*256, 4)+',X';
   end;
   aAbsolutY: begin
-    Result := nemo + '$'+IntToHex(par1 + par2*256, 4)+',Y';
     nBytesProc := 3;
+    if addr+2>CPUMAXRAM-1 then exit('');
+    par2   := ram[addr+2].value;
+    Result := nemo + '$'+IntToHex(par1 + par2*256, 4)+',Y';
   end;
   aZeroPagX: begin
+    nBytesProc := 2;
     Result := nemo + '$'+IntToHex(par1, 2)+',X';
-    nBytesProc := 3;
   end;
   aZeroPagY: begin
+    nBytesProc := 2;
     Result := nemo + '$'+IntToHex(par1, 2)+',Y';
-    nBytesProc := 3;
   end;
   aIdxIndir: begin
-    Result := nemo + '$('+IntToHex(par1, 2)+',X)';
     nBytesProc := 2;
+    Result := nemo + '$('+IntToHex(par1, 2)+',X)';
   end;
   aIndirIdx: begin
+    nBytesProc := 2;
     Result := nemo + '$('+IntToHex(par1, 2)+'),Y';
-    nBytesProc := 3;
   end;
   end;
-end;
-function TP6502.DisassemblerAt(addr: word; out nBytesProc: byte;
-                               useVarName: boolean): string;
-{Disassembler the instruction located at "addr"}
-var
-  valOp: Word;
-begin
-  Result := Disassembler(ram[addr].value,
-                         ram[addr+1].value,
-                         ram[addr+2].value, nBytesProc, useVarName);
 end;
 function TP6502.CurInstruction: TP6502Inst;
-{Resturn the instruction pointed by PC, in this moment.}
+{Return the instruction pointed by PC, in this moment.}
 begin
   Decode(ram[PC.W].value);   //decode instruction
   Result := idIns;
@@ -597,11 +605,11 @@ Falta implementar las operaciones, cuando acceden al registro INDF, el Watchdog 
 los contadores, las interrupciones}
 var
   opc: byte;
-  msk, resNib: byte;
   nCycles, nBytes: byte;
-  resInt : integer;
+  target : word;
 begin
   //Decodifica instrucción
+  aPC := PC.W;
   opc := ram[aPC].value;
   Decode(opc);   //Decode instruction
   nCycles := PIC16InstName[idIns].instrInform[modIns].Cycles;
@@ -635,24 +643,67 @@ begin
   i_INC:;  //increment
   i_INX:;  //increment X
   i_INY:;  //increment Y
-  i_JMP:;  //jump
-  i_JSR:;  //jump subroutine
+  i_JMP: begin    //jump
+    case modIns of
+    aAbsolute : begin
+      PC.L := ram[aPC+1].value;
+      PC.H := ram[aPC+2].value;
+    end;
+    aIndirect: begin
+      target := ram[aPC+1].value + 256* ram[aPC+2].value;
+      PC.L := ram[target+1].value;
+      PC.H := ram[target+2].value;
+    end;
+    end;
+    //Inc(PC.W, nBytes);  //No apply
+    Inc(nClck, nCycles);
+    exit;
+  end;
+  i_JSR: begin
+    inc(PC.W, 3);  //Next psoition
+    //Save return
+    ram[$100 + SP].value := PC.H;
+    if SP = $00 then SP := $FF else dec(SP);
+    ram[$100 + SP].value := PC.L;
+    if SP = $00 then SP := $FF else dec(SP);
+    PC.L := ram[aPC+1].value;
+    PC.H := ram[aPC+2].value;
+    //Inc(PC.W, nBytes);  //No apply
+    Inc(nClck, nCycles);
+    exit;
+  end;  //jump subroutine
   i_LDA:;  //load accumulator
   i_LDX:;  //load X
   i_LDY:;  //load Y
   i_LSR:;  //logical shift right
   i_NOP:;  //no operation
   i_ORA:;  //or with accumulator
-  i_PHA:;  //push accumulator
+  i_PHA: begin //push accumulator
+    ram[$100 + SP].value := W;
+    if SP = $00 then SP := $FF else dec(SP);
+  end;
   i_PHP:;  //push processor status (SR)
-  i_PLA:;  //pull accumulator
+  i_PLA: begin  //pull accumulator
+    if SP = $FF then SP := $00 else inc(SP);
+    W := ram[$100 + SP].value;
+  end;
   i_PLP:;  //pull processor status (SR)
   i_ROL:;  //rotate left
   i_ROR:;  //rotate right
   i_RTI:;  //return from interrupt
-  i_RTS:;  //return from subroutine
+  i_RTS: begin  //return from subroutine
+    if SP = $FF then SP := $00 else inc(SP);
+    PC.L := ram[$100 + SP].value;
+    if SP = $FF then SP := $00 else inc(SP);
+    PC.H := ram[$100 + SP].value;
+    //Inc(PC.W, nBytes);  //No apply
+    Inc(nClck, nCycles);
+    exit;
+  end;
   i_SBC:;  //subtract with carry
-  i_SEC:;  //set carry
+  i_SEC: begin  //set carry
+    STATUS_C := true;
+  end;
   i_SED:;  //set decimal
   i_SEI:;  //set interrupt disable
   i_STA:;  //store accumulator
@@ -889,13 +940,13 @@ begin
   end;
   i_CALL: begin
     //Guarda dirección en Pila
-    STACK[STKPTR] := PC.W;
-    if STKPTR = 7 then begin
+    STACK[SP] := PC.W;
+    if SP = 7 then begin
       //Desborde de pila
-      STKPTR := 0;
+      SP := 0;
       if OnExecutionMsg<>nil then OnExecutionMsg('Stack Overflow on CALL OpCode at $' + IntToHex(aPC,4));
     end else begin
-      STKPTR := STKPTR +1;
+      SP := SP +1;
     end;
     PC.W := k_;  //Takes the 11 bits from k
     PC.H := PC.H or (PCLATH and %00011000);  //And complete with bits 3 and 4 of PCLATH
@@ -920,42 +971,42 @@ begin
   end;
   i_RETFIE: begin
     //Saca dirección en Pila
-    if STKPTR = 0 then begin
+    if SP = 0 then begin
       //Desborde de pila
-      STKPTR := 7;
+      SP := 7;
       if OnExecutionMsg<>nil then OnExecutionMsg('Stack Overflow on RETFIE OpCode at $' + IntToHex(aPC,4));
     end else begin
-      STKPTR := STKPTR - 1;
+      SP := SP - 1;
     end;
-    PC.W := STACK[STKPTR];  //Should be 13 bits
+    PC.W := STACK[SP];  //Should be 13 bits
     Inc(nClck);   //Esta instrucción toma un ciclo más
     //Activa GIE
     INTCON_GIE := true;
   end;
   i_RETLW: begin
     //Saca dirección en Pila
-    if STKPTR = 0 then begin
+    if SP = 0 then begin
       //Desborde de pila
-      STKPTR := 7;
+      SP := 7;
       if OnExecutionMsg<>nil then OnExecutionMsg('Stack Overflow on RETLW OpCode at $' + IntToHex(aPC,4));
     end else begin
-      STKPTR := STKPTR - 1;
+      SP := SP - 1;
     end;
-    PC.W := STACK[STKPTR];  //Should be 13 bits
+    PC.W := STACK[SP];  //Should be 13 bits
     Inc(nClck);   //Esta instrucción toma un ciclo más
     //Fija valor en W
     W := k_;
   end;
   i_RETURN: begin
     //Saca dirección en Pila
-    if STKPTR = 0 then begin
+    if SP = 0 then begin
       //Desborde de pila
-      STKPTR := 7;
+      SP := 7;
       if OnExecutionMsg<>nil then OnExecutionMsg('Stack Overflow on RETURN OpCode at $' + IntToHex(aPC,4));
     end else begin
-      STKPTR := STKPTR - 1;
+      SP := SP - 1;
     end;
-    PC.W := STACK[STKPTR];  //Should be 13 bits
+    PC.W := STACK[SP];  //Should be 13 bits
     Inc(nClck);   //Esta instrucción toma un ciclo más
   end;
   i_SLEEP: begin
@@ -1053,7 +1104,7 @@ begin
   end;
   stopped := false;
 end;
-procedure TP6502.Reset;
+procedure TP6502.Reset(hard: boolean);
 //Reinicia el dipsoitivo
 var
   i: Integer;
@@ -1061,12 +1112,14 @@ begin
   PC.W   := 0;
   PCLATH := 0;
   W      := 0;
-  STKPTR := 0;   //Posición inicial del puntero de pila
+  SP     := $FF;   //Posición inicial del puntero de pila
   nClck  := 0;   //Inicia contador de ciclos
   CommStop := false;  //Limpia bandera
-  //Limpia solamente el valor inicial, no toca los otros campos
-  for i:=0 to high(ram) do begin
-    ram[i].dvalue := $00;
+  if hard then begin
+    //Limpia solamente el valor inicial, no toca los otros campos
+    for i:=0 to high(ram) do begin
+      ram[i].dvalue := $00;
+    end;
   end;
   ram[_STATUS].dvalue := %00011000;  //STATUS
 end;
@@ -1080,18 +1133,18 @@ begin
 end;
 //Funciones para la memoria RAM
 function TP6502.GetFreeByte(out addr: word; shared: boolean): boolean;
-{Devuelve una dirección libre de la memoria RAM.
+{Devuelve una dirección libre de la memoria RAM, a partir de la dirección iRam.
 "Shared" indica que se marcará el bit como de tipo "Compartido", y se usa para el
 caso en que se quiera comaprtir la misma posición para diversos variables.
 Si encuentra espacio, devuelve TRUE.}
 var
   i: Integer;
-  maxRam: word;
+  maxRam: dword;
 begin
   Result := false;   //valor inicial
   maxRam := CPUMAXRAM;  //posición máxima
   //Realmente debería explorar solo hasta la dirección implementada, por eficiencia
-  for i:=0 to maxRam-1 do begin
+  for i:=iRam to maxRam-1 do begin
     if (ram[i].state = cs_impleGPR) and (not ram[i].used) then begin
       //Esta dirección está libre
       ram[i].used := true;   //marca como usado
@@ -1126,14 +1179,14 @@ begin
     end;
   end;
 end;
-function TP6502.TotalMemRAM: word;
+function TP6502.TotalMemRAM: integer;
 {Devuelve el total de memoria RAM disponible}
 var
   i: Integer;
 begin
   Result := 0;
   for i := 0 to CPUMAXRAM - 1 do begin
-    if ram[i].AvailGPR then begin
+    if ram[i].Avail then begin
       Result := Result + 1;
     end;
   end;
@@ -1145,7 +1198,7 @@ var
 begin
   Result := 0;
   for i := 0 to CPUMAXRAM - 1 do begin
-    if ram[i].AvailGPR and (ram[i].used) then begin
+    if ram[i].Avail and (ram[i].used) then begin
       //Notar que "AvailGPR" asegura que no se consideran registros maepados
       Result := Result + 1;
     end;
@@ -1157,7 +1210,7 @@ var
   i: Integer;
 begin
   for i := 0 to CPUMAXRAM - 1 do begin
-    if ram[i].AvailGPR and (ram[i].used) then begin
+    if ram[i].Avail and (ram[i].used) then begin
       rutExplorRAM(i, @ram[i]);
     end;
   end;
@@ -1168,37 +1221,13 @@ begin
   if addr > CPUMAXRAM then exit(false);   //excede límite
   exit(true);
 end;
-procedure TP6502.GenHex(hexFile: string; ConfigWord: integer = -1);
-{Genera el archivo *.hex, a partir de los datos almacenados en la memoria RAM.
-Actualiza los campos, minUsed y maxUsed.}
-var
-  iHex: word;  //Índice para explorar
-  addr: word;  //Dirección de inicio
-  i: Integer;
-
-begin
-  hexLines.Clear;      //Se usará la lista hexLines
-  //Prepara extracción de datos
-  minUsed := CPUMAXRAM;
-  maxUsed := 0;
-  iHex := 0;
-  //Busca dirección de inicio usada
-  for i := 0 to CPUMAXRAM-1 do begin
-    if ram[i].used then begin
-      if i<minUsed then minUsed := i;
-      if i>maxUsed then maxUsed := i;
-      hexLines.Add('poke ' +  IntToStr(i) + ',' + IntToStr(ram[i].value));
-    end;
-  end;
-  //hexLines.Add('Comentario');
-  hexLines.SaveToFile(hexFile); //Genera archivo
-end;
-procedure TP6502.DumpCode(lOut: TStrings; incAdrr, incCom, incVarNam: boolean);
+procedure TP6502.DumpCodeAsm(lOut: TStrings;
+                             incAdrr, incValues, incCom, incVarNam: boolean);
 {Desensambla las instrucciones grabadas en el PIC.
  Se debe llamar despues de llamar a GenHex(), para que se actualicen las variables}
 var
   i: Word;
-  lblLin, comLat, comLin, lin: String;
+  lblLin, comLat, comLin, lin, opCode: String;
   nBytes: byte;
 const
   SPACEPAD = '      ';
@@ -1233,11 +1262,27 @@ begin
       lOut.Add(comLin);
     end;
     //Decodifica instrucción
-    lin := DisassemblerAt(i, nBytes, incVarNam);  //Instrucción
+    opCode := DisassemblerAt(i, nBytes, incVarNam);  //Instrucción
     //Verificas si incluye dirección física
+    lin := '';
     if incAdrr then  begin
-      lin := '$'+IntToHex(i,4) + ' ' + lin;
+      //Agrega dirección al inicio
+      lin := '$'+IntToHex(i,4) + ' ';
     end;
+    if incValues then begin
+      //Agrega bytes después
+      if nBytes = 1 then begin
+          lin := lin + IntToHex(ram[i].value, 2) + '       ' ;
+      end else if nBytes = 2  then begin
+          lin := lin + IntToHex(ram[i].value, 2) + ' ' +
+                       IntToHex(ram[i+1].value, 2) + '    ';
+      end else if nBytes = 3 then begin
+          lin := lin + IntToHex(ram[i].value, 2) + ' ' +
+                       IntToHex(ram[i+1].value, 2) + ' ' +
+                       IntToHex(ram[i+2].value, 2) + ' ';
+      end;
+    end;
+    lin := lin + opCode;
     //Verifica si incluye comentario lateral
     if incCom then begin
       lin := lin  + ' ' + comLat;
@@ -1246,12 +1291,32 @@ begin
     i := i + nBytes;   //Incrementa a siguiente instrucción
   end;
 end;
+procedure TP6502.GenHex(hexFile: string);
+{Genera el archivo *.hex, a partir de los datos almacenados en la memoria RAM.
+Actualiza los campos, minUsed y maxUsed.}
+var
+  i: Integer;
+begin
+  hexLines.Clear;      //Se usará la lista hexLines
+  //Prepara extracción de datos
+  minUsed := CPUMAXRAM;
+  maxUsed := 0;
+  //Busca dirección de inicio usada
+  for i := 0 to CPUMAXRAM-1 do begin
+    if ram[i].used then begin
+      if i<minUsed then minUsed := i;
+      if i>maxUsed then maxUsed := i;
+      hexLines.Add('poke ' +  IntToStr(i) + ',' + IntToStr(ram[i].value));
+    end;
+  end;
+  hexLines.SaveToFile(hexFile); //Genera archivo
+end;
 constructor TP6502.Create;
 begin
   inherited Create;
   //Default hardware settings
   Model := '6502';
-  CPUMAXRAM   := 4096; //Máx RAM memory
+  CPUMAXRAM  := $10000; //Máx RAM memory
   SetLength(ram, CPUMAXRAM);
   //inicia una configuración común
   ClearMemRAM;
