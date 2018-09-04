@@ -132,11 +132,12 @@ type  //Instructions set
 
 
 const  //Constants of address and bit positions for some registers
-  _STATUS = $03;
   _C      = 0;
-  _Z      = 2;
-  _RP0    = 5;
-  _RP1    = 6;
+  _Z      = 1;
+  _D      = 3;
+  _B      = 4;
+  _V      = 6;
+  _N      = 7;
 //  _IRP   = 7;
 type
   {Objeto que representa al hardware de un PIC de la serie 16}
@@ -151,28 +152,27 @@ type
   private //Campos para procesar instrucciones
     function GetINTCON: byte;
     function GetINTCON_GIE: boolean;
-    function GetSTATUS: byte;
     function GetSTATUS_C: boolean;
-    function GetSTATUS_DC: boolean;
-    function GetSTATUS_IRP: boolean;
+    function GetSTATUS_N: boolean;
+    function GetSTATUS_I: boolean;
     function GetSTATUS_Z: boolean;
     procedure SetINTCON_GIE(AValue: boolean);
     procedure SetSTATUS_C(AValue: boolean);
-    procedure SetSTATUS_DC(AValue: boolean);
-    procedure SetSTATUS_IRP(AValue: boolean);
+    procedure SetSTATUS_N(AValue: boolean);
+    procedure SetSTATUS_I(AValue: boolean);
     procedure SetSTATUS_Z(AValue: boolean);
     procedure SetFRAM(value: byte);
     function GetFRAM: byte;
-  public  //Campos que modelan a los registros internos
+  public  //Fields to modelate internal register (For Simulation)
     W        : byte;   //Registro de trabajo
     PC       : TWordRec; //PC as record to fast access for bytes
-    PCLATH   : byte;   //Contador de Programa H
-    SP       : byte;   //Puntero de pila
-    property STATUS: byte read GetSTATUS;
+    SP       : byte;   //Stack Pointer
+    SR       : byte;   //Status Register
+    property STATUS: byte read SR;
     property STATUS_Z: boolean read GetSTATUS_Z write SetSTATUS_Z;
     property STATUS_C: boolean read GetSTATUS_C write SetSTATUS_C;
-    property STATUS_DC: boolean read GetSTATUS_DC write SetSTATUS_DC;
-    property STATUS_IRP: boolean read GetSTATUS_IRP write SetSTATUS_IRP;
+    property STATUS_N: boolean read GetSTATUS_N write SetSTATUS_N;
+    property STATUS_I: boolean read GetSTATUS_I write SetSTATUS_I;
     property INTCON: byte read GetINTCON;
     property INTCON_GIE: boolean read GetINTCON_GIE write SetINTCON_GIE;
     property FRAM: byte read GetFRAM write SetFRAM;
@@ -408,45 +408,41 @@ begin
   Result := i_Inval;
 end;
 //Campos para procesar instrucciones
-function TP6502.GetSTATUS: byte;
-begin
-  Result := ram[_STATUS].dvalue;
-end;
 function TP6502.GetSTATUS_Z: boolean;
 begin
-  Result := (ram[_STATUS].dvalue and %00000100) <> 0;
+  Result := (SR and %00000010) <> 0;
 end;
 procedure TP6502.SetSTATUS_Z(AValue: boolean);
 begin
-  if AVAlue then ram[_STATUS].dvalue := ram[_STATUS].dvalue or  %00000100
-            else ram[_STATUS].dvalue := ram[_STATUS].dvalue and %11111011;
+  if AVAlue then SR := SR or  %00000010
+            else SR := SR and %11111101;
 end;
 function TP6502.GetSTATUS_C: boolean;
 begin
-  Result := (ram[_STATUS].dvalue and %00000001) <> 0;
+  Result := (SR and %00000001) <> 0;
 end;
 procedure TP6502.SetSTATUS_C(AValue: boolean);
 begin
-  if AVAlue then ram[_STATUS].dvalue := ram[_STATUS].dvalue or  %00000001
-            else ram[_STATUS].dvalue := ram[_STATUS].dvalue and %11111110;
+  if AVAlue then SR := SR or  %00000001
+            else SR := SR and %11111110;
 end;
-function TP6502.GetSTATUS_DC: boolean;
+function TP6502.GetSTATUS_N: boolean;
 begin
-  Result := (ram[_STATUS].dvalue and %00000010) <> 0;
+  Result := (SR and %10000000) <> 0;
 end;
-procedure TP6502.SetSTATUS_DC(AValue: boolean);
+procedure TP6502.SetSTATUS_N(AValue: boolean);
 begin
-  if AVAlue then ram[_STATUS].dvalue := ram[_STATUS].dvalue or  %00000010
-            else ram[_STATUS].dvalue := ram[_STATUS].dvalue and %11111101;
+  if AVAlue then SR := SR or  %10000000
+            else SR := SR and %01111111;
 end;
-function TP6502.GetSTATUS_IRP: boolean;
+function TP6502.GetSTATUS_I: boolean;
 begin
-  Result := (ram[_STATUS].dvalue and %10000000) <> 0;
+  Result := (SR and %00000100) <> 0;
 end;
-procedure TP6502.SetSTATUS_IRP(AValue: boolean);
+procedure TP6502.SetSTATUS_I(AValue: boolean);
 begin
-  if AVAlue then ram[_STATUS].dvalue := ram[_STATUS].dvalue or  %10000000
-            else ram[_STATUS].dvalue := ram[_STATUS].dvalue and %01111111;
+  if AVAlue then SR := SR or  %00000100
+            else SR := SR and %11111011;
 end;
 function TP6502.GetINTCON: byte;
 begin
@@ -731,7 +727,7 @@ begin
     end;
     STATUS_Z := (resWord and $ff) = 0;
     STATUS_C := (resWord > 255);
-    STATUS_DC := (resNib > 15);
+    STATUS_N := (resNib > 15);
   end;
   i_ANDWF: begin
     resByte := W and FRAM;
@@ -884,8 +880,8 @@ begin
     if resInt < 0 then STATUS_C := false   //negativo
     else STATUS_C := true;
     resInt := (resByte and $0F) - (W and $0F);
-    if resInt < 0 then STATUS_DC := false   //negativo
-    else STATUS_DC := true;
+    if resInt < 0 then STATUS_N := false   //negativo
+    else STATUS_N := true;
   end;
   i_SWAPF: begin
     resByte := FRAM;
@@ -931,7 +927,7 @@ begin
     w := resWord and $FF;
     STATUS_Z := (resWord and $ff) = 0;
     STATUS_C := (resWord > 255);
-    STATUS_DC := (resNib > 15);
+    STATUS_N := (resNib > 15);
   end;
   i_ANDLW: begin
     resByte := W and K_;
@@ -1018,8 +1014,8 @@ begin
     if resInt < 0 then STATUS_C := false   //negativo
     else STATUS_C := true;
     resInt := (k_ and $0F) - (W and $0F);
-    if resInt < 0 then STATUS_DC := false   //negativo
-    else STATUS_DC := true;
+    if resInt < 0 then STATUS_N := false   //negativo
+    else STATUS_N := true;
   end;
   i_XORLW: begin
     resByte := W xor k_;
@@ -1110,9 +1106,9 @@ var
   i: Integer;
 begin
   PC.W   := 0;
-  PCLATH := 0;
   W      := 0;
   SP     := $FF;   //Posición inicial del puntero de pila
+  SR     := %00000100;  //I -> 1
   nClck  := 0;   //Inicia contador de ciclos
   CommStop := false;  //Limpia bandera
   if hard then begin
@@ -1121,7 +1117,6 @@ begin
       ram[i].dvalue := $00;
     end;
   end;
-  ram[_STATUS].dvalue := %00011000;  //STATUS
 end;
 function TP6502.ReadPC: dword;
 begin
@@ -1296,6 +1291,7 @@ procedure TP6502.GenHex(hexFile: string);
 Actualiza los campos, minUsed y maxUsed.}
 var
   i: Integer;
+  f: file of byte;
 begin
   hexLines.Clear;      //Se usará la lista hexLines
   //Prepara extracción de datos
@@ -1306,10 +1302,17 @@ begin
     if ram[i].used then begin
       if i<minUsed then minUsed := i;
       if i>maxUsed then maxUsed := i;
-      hexLines.Add('poke ' +  IntToStr(i) + ',' + IntToStr(ram[i].value));
     end;
   end;
-  hexLines.SaveToFile(hexFile); //Genera archivo
+  //Genera archivo PRG
+  AssignFile(f, hexFile);
+  Rewrite(f);
+  Write(f, minUsed and $ff);
+  Write(f, (minUsed >> 8) and $ff);
+  for i := minUsed to maxUsed do begin  //Llena buffer
+     Write(f, ram[i].value);
+  end;
+  close(f);
 end;
 constructor TP6502.Create;
 begin
