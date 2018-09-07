@@ -123,14 +123,6 @@ type  //Instructions set
       optCycles: string);
   end;
 
-  //Indica el destino de la instrucción
-  TPIC16destin = (
-    toW = %00000000,    //al acumulador
-    toF = %10000000     //a memoria
-  );
-
-
-
 const  //Constants of address and bit positions for some registers
   _C      = 0;
   _Z      = 1;
@@ -199,12 +191,14 @@ type
     function ValidRAMaddr(addr: word): boolean;  //indica si una posición de memoria es válida
   public  //Métthods to code instructions according to syntax
     procedure useRAM;
+    procedure codByte(const value: byte; isData: boolean);
     procedure codAsm(const inst: TP6502Inst; addMode: TP6502AddMode; param: word);
-    procedure codGotoAt(iRam0: integer; const k: word);
-    procedure codCallAt(iRam0: integer; const k: word);
+    procedure cod_JMP_at(iRam0: integer; const k: word);
+    procedure cod_REL_JMP_at(iRam0: integer; const k: word);
     function codInsert(iRam0, nInsert, nWords: integer): boolean;
-  public  //Adicional methods
-    function FindOpcode(Op: string): TP6502Inst;  //busca Opcode
+  public  //Aditional methods
+    function FindOpcode(Op: string): TP6502Inst;  //Find Opcode
+    function IsRelJump(idInst: TP6502Inst): boolean;  //Idnetify realtive jumps Opcodes
     procedure GenHex(hexFile: string);  //genera un archivo hex
     procedure DumpCodeAsm(lOut: TStrings; incAdrr, incValues, incCom,
       incVarNam: boolean);
@@ -255,8 +249,19 @@ begin
   ram[iRam].used := true;  //marca como usado
   inc(iRam);
 end;
+procedure TP6502.codByte(const value: byte; isData: boolean);
+{Write a byte to the RAM memory.}
+begin
+  if iRam >= CPUMAXRAM then begin
+    MsjError := 'RAM Memory limit exceeded.';
+    exit;
+  end;
+  ram[iRam].value := value;
+  if isData then ram[iRam].name := 'data';
+  useRAM;  //marca como usado e incrementa puntero.
+end;
 procedure TP6502.codAsm(const inst: TP6502Inst; addMode: TP6502AddMode; param: word);
-{Rutina general para codificar instrucciones en ensamblador}
+{General routine to codify assembler instructions.}
 var
   rInst: TP6502Instruct;
 begin
@@ -267,6 +272,10 @@ begin
     exit;
   end;
   //Write OpCode
+  if not (addMode in rInst.addressModes) then begin
+    MsjError := 'Invalid Adrress mode.';
+    exit;
+  end;
   ram[iRam].value := rInst.instrInform[addMode].Opcode;
   useRAM;  //marca como usado e incrementa puntero.
   //Codifica parámetros
@@ -348,25 +357,26 @@ begin
     raise Exception.Create('Implementation Error.');
   end;
 end;
-procedure TP6502.codGotoAt(iRam0: integer; const k: word);
-{Codifica una instrucción GOTO, en una posición específica y sin alterar el puntero "iFlash"
-actual. Se usa para completar saltos indefinidos}
+procedure TP6502.cod_JMP_at(iRam0: integer; const k: word);
+{Codiica la parte de la dirección de una instrucción de salto. Se usa
+para completar saltos indefinidos}
 var
   rInst: TP6502Instruct;
 begin
-  rInst := PIC16InstName[i_JMP];
-  ram[iRam0].value   := rInst.instrInform[aAbsolute].Opcode;
+//  rInst := PIC16InstName[i_JMP];
+//  ram[iRam0].value   := rInst.instrInform[aAbsolute].Opcode;
   ram[iRam0+1].value := lo(k);
   ram[iRam0+2].value := hi(k);
 end;
-procedure TP6502.codCallAt(iRam0: integer; const k: word);
-{Codifica una instrucción i_CALL, en una posición específica y sin alterar el puntero "iFlash"
-actual. Se usa para completar llamadas indefinidas}
+procedure TP6502.cod_REL_JMP_at(iRam0: integer; const k: word);
+{Codifica la parte de la dirección relativa de una instrucción condicional. Se usa
+para completar llamadas indefinidas}
 var
   rInst: TP6502Instruct;
 begin
-  rInst := PIC16InstName[i_JSR];
-  ram[iRam0].value := rInst.instrInform[aAbsolute].Opcode;
+//  rInst := PIC16InstName[i_JSR];
+//  ram[iRam0].value   := rInst.instrInform[aAbsolute].Opcode;
+  ram[iRam0+1].value := lo(k);
 end;
 function TP6502.codInsert(iRam0, nInsert, nWords: integer): boolean;
 {Inserta en la posición iRam0, "nInsert" palabras, desplazando "nWords" palabras.
@@ -406,6 +416,11 @@ begin
   end;
   //No encontró
   Result := i_Inval;
+end;
+function TP6502.IsRelJump(idInst: TP6502Inst): boolean;
+{Returns TRUE if the instruction accept the relative address mode}
+begin
+  Result := PIC16InstName[idInst].instrInform[aRelative].Opcode<>0;
 end;
 //Campos para procesar instrucciones
 function TP6502.GetSTATUS_Z: boolean;
