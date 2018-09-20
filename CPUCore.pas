@@ -8,8 +8,6 @@ unit CPUCore;
 interface
 uses
   Classes, SysUtils, LCLProc;
-const
-  PIC_MAX_PINES = 64;                //Max. number of pines for the package
 type
   //Union to access bytes of a word
   TWordRec = record
@@ -26,25 +24,6 @@ type
      cs_impleGPR,   //Implemented. Can be used.
      cs_unimplem    //Not implemented.
   );
-
-  TCPUPinType = (
-    pptVcc,    //Alimentación
-    pptGND,    //Tierra
-    pptControl,//Pin de control
-    pptPort,   //Puerto Entrada/Salida
-    pptUnused  //Pin no usado
-  );
-
-  { TCPUPin }
-  //Model for a phisycal pin of the PIC
-  TCPUPin = object
-    nam: string;      //Eqtiueta o nombre
-    typ: TCPUPinType; //Tipo de pin
-    add: word;        //Dirección en RAM
-    bit: byte;        //Bit en RAM
-    function GetLabel: string;
-  end;
-  TCPUPinPtr = ^TCPUPin;
 
 type //Models for RAM memory
 
@@ -74,6 +53,7 @@ type //Models for RAM memory
     rowSrc    : word;     //Row number
     colSrc    : word;     //Column number
     idFile    : SmallInt; //Index to a file. No load the name to save space.
+    rowGrid   : word;     //Used to include Grid information when debug.
     {Estos campos de cadena ocupan bastante espacio, aún cuado están en NULL. Si se
     quisiera optimizar el uso de RAM, se podría pensar en codificar, varios campos en
     una sola cadena.}
@@ -118,19 +98,12 @@ type
     procedure DisableAllRAM;
     procedure SetStatRAM(i1, i2: word; status0: TCPUCellState);
     function SetStatRAMCom(strDef: string): boolean;
-    function MapRAMtoPIN(strDef: string): boolean;
     function HaveConsecRAM(const i, n: word; maxRam: word): boolean; //Indica si hay "n" bytes libres
     procedure UseConsecRAM(const i, n: word);  //Ocupa "n" bytes en la posición "i"
     procedure SetSharedUnused;
     procedure SetSharedUsed;
   public  //ram memory functions
     function UsedMemRAM: word;  //devuelve el total de memoria ram usada
-  public  //Pins fields
-    Npins    : byte;      //Number of pins
-    pines    : array[1..PIC_MAX_PINES] of TCPUPin;
-    procedure ResetPins;
-    procedure SetPin(pNumber: integer; pLabel: string; pType: TCPUPinType);
-    function SetPinName(strDef: string): boolean;
   public  //RAM name managment
     function NameRAM(const addr: word): string;
     procedure SetNameRAM(const addr: word; const nam: string);  //Fija nombre a una celda de RAM
@@ -173,16 +146,6 @@ begin
   Result := (state = cs_impleGPR);
 end;
 
-{ TCPUPin }
-function TCPUPin.GetLabel: string;
-{Devuelve una etiqueta para el pin}
-begin
-  case typ of
-  pptUnused: Result := 'NC';
-  else
-    Result := nam;
-  end;
-end;
 { TCPUCore }
 //RAM memory functions
 procedure TCPUCore.ClearMemRAM;
@@ -211,10 +174,6 @@ var
 begin
   for i:=0 to high(ram) do begin
     ram[i].state    := cs_unimplem;
-  end;
-  //Inicia estado de pines
-  for i:=1 to high(pines) do begin
-    pines[i].typ := pptUnused;
   end;
 end;
 procedure TCPUCore.SetStatRAM(i1, i2: word; status0: TCPUCellState);
@@ -287,122 +246,6 @@ begin
   finally
     coms.Destroy;
   end;
-end;
-function TCPUCore.MapRAMtoPIN(strDef: string): boolean;
-{Mapea puertos de memoria RAM a pines físicos del dispositivo. Útil para la simulación
-La cadena de definición, tiene el formato:
-<dirección>:<comando 1>, <comando 2>, ...
-Cada comando, tiene el formato:
-<dirIni>:<bit>-<pin>
-Un ejemplo de cadena de definición, es:
-   '005:0-17,1-18,2-1,3-2,4-3'
-Si hay error, devuelve FALSE, y el mensaje de error en MsjError.
-}
-var
-  coms: TStringList;
-  add1, pin, bit: longint;
-  com, str, ramName: String;
-  pSep: SizeInt;
-begin
-  Result := true;
-  //Obtiene dirección
-  if length(strDef) < 4 then begin
-    MsjError := 'Syntax error';
-    exit(false);
-  end;
-  if strDef[4] <> ':' then begin
-    MsjError := 'Expected "<3-digits address>"';
-    exit(false);
-  end;
-  if not TryStrToInt('$'+copy(strDef,1,3), add1) then begin
-    MsjError := 'Address format error.';
-    exit(false);
-  end;
-  delete(strDef, 1, 4);  //quita la dirección
-  //Obtiene lista de asociaciones
-  coms:= TStringList.Create;
-  try
-    coms.Delimiter := ',';
-    coms.DelimitedText := strDef;
-    for str in coms do begin
-      com := UpCase(trim(str));  //asociación
-      if com='' then continue;
-      pSep := pos('-',com);   //Posición de separador
-      if pSep = 0 then begin
-        MsjError := 'Expected "-".';
-        exit(false);
-      end;
-      //Debe tener el formato pedido
-//      debugln(com);
-      if not TryStrToInt(copy(com,1,pSep-1), bit) then begin
-        MsjError := 'Error in bit number.';
-        exit(false);
-      end;
-      if not TryStrToInt(copy(com,pSep+1,length(com)), pin) then begin
-        MsjError := 'Error in pin number.';
-        exit(false);
-      end;
-      if (pin<0) or (pin>PIC_MAX_PINES) then begin
-        MsjError := 'Pin number out of range.';
-        exit(false);
-      end;
-      if pin>Npins then begin
-        MsjError := 'Pin number out of range, for this device.';
-        exit(false);
-      end;
-      //Ya se tiene el BIT y el PIN. Configura datos del PIN
-      pines[pin].add := add1;
-      pines[pin].bit := bit;
-      pines[pin].typ := pptPort;
-      ramName := ram[add1].name;
-      if ramName='' then ramName := 'PORT';
-      pines[pin].nam :=  ramName + '.' + IntToStr(bit);  //Nombre por defecto
-    end;
-  finally
-    coms.Destroy;
-  end;
-end;
-procedure TCPUCore.ResetPins;
-{Reset the pins of the device.}
-var
-  i: byte;
-begin
-  for i:=1 to Npins do begin
-    pines[i].nam := ' ';
-    pines[i].typ := pptUnused;
-  end;
-end;
-procedure TCPUCore.SetPin(pNumber: integer; pLabel: string; pType: TCPUPinType);
-begin
-  if pNumber>PIC_MAX_PINES then exit;
-  pines[pNumber].nam := pLabel;
-  pines[pNumber].typ := pType;
-end;
-function TCPUCore.SetPinName(strDef: string): boolean;
-{Define the name for a specified Pin of the microcontroller, using a string.
-"strDef" have the format:
-<pin number>:<name of the pin>
-On error this function return FALSE, and the error menssage in MsjError.
-}
-var
-  com, pinName: String;
-  pNumber: integer;
-  pcol: SizeInt;
-begin
-  com := UpCase(trim(strDef));
-  if com='' then exit;
-  pcol := Pos(':', strDef);
-  if pcol=0 then begin
-    MsjError := 'SetPinName: Expected ":".';
-    exit(false);
-  end;
-  //"com" must have the correct format
-  if not TryStrToInt( copy(com, 1, pcol-1) , pNumber) then begin
-    MsjError := 'SetPinName: Wrong Pin Number.';
-    exit(false);
-  end;
-  pinName :=copy(com, pcol+1, 32);  //limited to 32
-  SetPin(pNumber, pinName, pptControl);
 end;
 function TCPUCore.HaveConsecRAM(const i, n: word; maxRam: word): boolean;
 {Indica si hay "n" bytes consecutivos libres en la posicióm "i", en RAM.

@@ -3,7 +3,8 @@
 Se eliminan algunos campos no usados, porque esta librería se ha creado a partir de la librería
 PicUtils que contiene más detalle en cuanto al hardware.
 Se corrige errores en el ejemplo de ensamblador.
-Se agregan registros adicionales de la CPU
+Se agregan registros adicionales de la CPU.
+Se implementa la simulación de nuevas instrucciones. Aún quedan pendientes algunas.
 
 0.0
 ===

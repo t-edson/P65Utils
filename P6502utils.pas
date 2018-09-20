@@ -93,8 +93,8 @@ type  //Instructions set
     aAbsolutY,  //Absolute Indexed by Y  : STA $1000, Y
     aZeroPagX,  //Zero page Indexed by X : LDA $10, X
     aZeroPagY,  //Zero page Indexed by Y : LDA $10, Y
-    aIdxIndir,  //Indexed Indirect: LDA ($40,X)  Only for X
-    aIndirIdx   //Indirect Indexed: LDA ($40),Y  Only for Y
+    aIndirecX,  //Indexed Indirect: LDA ($40,X)  Only for X
+    aIndirecY   //Indirect Indexed: LDA ($40),Y  Only for Y
   );
   TP6502AddModes = set of TP6502AddMode;
   //Instruction Information for each Address Mode
@@ -145,26 +145,33 @@ type
     function GetINTCON: byte;
     function GetINTCON_GIE: boolean;
     function GetSTATUS_C: boolean;
+    function GetSTATUS_D: boolean;
     function GetSTATUS_N: boolean;
     function GetSTATUS_I: boolean;
+    function GetSTATUS_V: boolean;
     function GetSTATUS_Z: boolean;
     procedure SetINTCON_GIE(AValue: boolean);
     procedure SetSTATUS_C(AValue: boolean);
+    procedure SetSTATUS_D(AValue: boolean);
     procedure SetSTATUS_N(AValue: boolean);
     procedure SetSTATUS_I(AValue: boolean);
+    procedure SetSTATUS_V(AValue: boolean);
     procedure SetSTATUS_Z(AValue: boolean);
     procedure SetFRAM(value: byte);
     function GetFRAM: byte;
   public  //Fields to modelate internal register (For Simulation)
-    W        : byte;   //Registro de trabajo
+    W        : byte;   //Work register
+    X,Y      : byte;   //Index registers
     PC       : TWordRec; //PC as record to fast access for bytes
     SP       : byte;   //Stack Pointer
     SR       : byte;   //Status Register
     property STATUS: byte read SR;
+    property STATUS_N: boolean read GetSTATUS_N write SetSTATUS_N;
+    property STATUS_V: boolean read GetSTATUS_V write SetSTATUS_V;
+    property STATUS_D: boolean read GetSTATUS_D write SetSTATUS_D;
+    property STATUS_I: boolean read GetSTATUS_I write SetSTATUS_I;
     property STATUS_Z: boolean read GetSTATUS_Z write SetSTATUS_Z;
     property STATUS_C: boolean read GetSTATUS_C write SetSTATUS_C;
-    property STATUS_N: boolean read GetSTATUS_N write SetSTATUS_N;
-    property STATUS_I: boolean read GetSTATUS_I write SetSTATUS_I;
     property INTCON: byte read GetINTCON;
     property INTCON_GIE: boolean read GetINTCON_GIE write SetINTCON_GIE;
     property FRAM: byte read GetFRAM write SetFRAM;
@@ -345,11 +352,11 @@ begin
     ram[iRam].value := lo(param);
     useRAM;
   end;
-  aIdxIndir:begin
+  aIndirecX:begin
     ram[iRam].value := lo(param);
     useRAM;
   end;
-  aIndirIdx:begin
+  aIndirecY:begin
     ram[iRam].value := lo(param);
     useRAM;
   end;
@@ -358,24 +365,14 @@ begin
   end;
 end;
 procedure TP6502.cod_JMP_at(iRam0: integer; const k: word);
-{Codiica la parte de la dirección de una instrucción de salto. Se usa
-para completar saltos indefinidos}
-var
-  rInst: TP6502Instruct;
+{Encode the jump address for a jump instruction. Used to complete undefined jumps.}
 begin
-//  rInst := PIC16InstName[i_JMP];
-//  ram[iRam0].value   := rInst.instrInform[aAbsolute].Opcode;
   ram[iRam0+1].value := lo(k);
   ram[iRam0+2].value := hi(k);
 end;
 procedure TP6502.cod_REL_JMP_at(iRam0: integer; const k: word);
-{Codifica la parte de la dirección relativa de una instrucción condicional. Se usa
-para completar llamadas indefinidas}
-var
-  rInst: TP6502Instruct;
+{Encode the jump address for a relative jump instruction. Used to complete undefined jumps.}
 begin
-//  rInst := PIC16InstName[i_JSR];
-//  ram[iRam0].value   := rInst.instrInform[aAbsolute].Opcode;
   ram[iRam0+1].value := lo(k);
 end;
 function TP6502.codInsert(iRam0, nInsert, nWords: integer): boolean;
@@ -423,6 +420,42 @@ begin
   Result := PIC16InstName[idInst].instrInform[aRelative].Opcode<>0;
 end;
 //Campos para procesar instrucciones
+function TP6502.GetSTATUS_N: boolean;
+begin
+  Result := (SR and %10000000) <> 0;
+end;
+procedure TP6502.SetSTATUS_N(AValue: boolean);
+begin
+  if AVAlue then SR := SR or  %10000000
+            else SR := SR and %01111111;
+end;
+function TP6502.GetSTATUS_V: boolean;
+begin
+  Result := (SR and %01000000) <> 0;
+end;
+procedure TP6502.SetSTATUS_V(AValue: boolean);
+begin
+  if AVAlue then SR := SR or  %01000000
+            else SR := SR and %10111111;
+end;
+function TP6502.GetSTATUS_D: boolean;
+begin
+  Result := (SR and %00001000) <> 0;
+end;
+procedure TP6502.SetSTATUS_D(AValue: boolean);
+begin
+  if AVAlue then SR := SR or  %00001000
+            else SR := SR and %11110111;
+end;
+function TP6502.GetSTATUS_I: boolean;
+begin
+  Result := (SR and %00000100) <> 0;
+end;
+procedure TP6502.SetSTATUS_I(AValue: boolean);
+begin
+  if AVAlue then SR := SR or  %00000100
+            else SR := SR and %11111011;
+end;
 function TP6502.GetSTATUS_Z: boolean;
 begin
   Result := (SR and %00000010) <> 0;
@@ -440,24 +473,6 @@ procedure TP6502.SetSTATUS_C(AValue: boolean);
 begin
   if AVAlue then SR := SR or  %00000001
             else SR := SR and %11111110;
-end;
-function TP6502.GetSTATUS_N: boolean;
-begin
-  Result := (SR and %10000000) <> 0;
-end;
-procedure TP6502.SetSTATUS_N(AValue: boolean);
-begin
-  if AVAlue then SR := SR or  %10000000
-            else SR := SR and %01111111;
-end;
-function TP6502.GetSTATUS_I: boolean;
-begin
-  Result := (SR and %00000100) <> 0;
-end;
-procedure TP6502.SetSTATUS_I(AValue: boolean);
-begin
-  if AVAlue then SR := SR or  %00000100
-            else SR := SR and %11111011;
 end;
 function TP6502.GetINTCON: byte;
 begin
@@ -589,11 +604,11 @@ begin
     nBytesProc := 2;
     Result := nemo + '$'+IntToHex(par1, 2)+',Y';
   end;
-  aIdxIndir: begin
+  aIndirecX: begin
     nBytesProc := 2;
     Result := nemo + '$('+IntToHex(par1, 2)+',X)';
   end;
-  aIndirIdx: begin
+  aIndirecY: begin
     nBytesProc := 2;
     Result := nemo + '$('+IntToHex(par1, 2)+'),Y';
   end;
@@ -616,8 +631,8 @@ Falta implementar las operaciones, cuando acceden al registro INDF, el Watchdog 
 los contadores, las interrupciones}
 var
   opc: byte;
-  nCycles, nBytes: byte;
-  target : word;
+  nCycles, nBytes, tmp: byte;
+  target , addr: word;
 begin
   //Decodifica instrucción
   aPC := PC.W;
@@ -625,7 +640,24 @@ begin
   Decode(opc);   //Decode instruction
   nCycles := PIC16InstName[idIns].instrInform[modIns].Cycles;
   nBytes  := PIC16InstName[idIns].instrInform[modIns].nBytes;
-
+  //Get Operand
+  case modIns of
+  aImmediat: addr := (aPC+1) and $FFFF;
+  aZeroPage: addr := ram[aPC+1].value;
+  aZeroPagX: addr := (ram[aPC+1].value + X) and $FF;
+  aAbsolute: addr := ram[aPC+1].value  + 256*ram[aPC+2].value;
+  aAbsolutX: addr := (ram[aPC+1].value  + 256*ram[aPC+2].value + X) and $FFFF;
+  aAbsolutY: addr := (ram[aPC+1].value  + 256*ram[aPC+2].value + Y) and $FFFF;
+  aIndirecX: begin
+             tmp := (ram[aPC+1].value + X) and $FF;
+             addr := ram[tmp].value  + 256*ram[tmp+1].value;
+    end;
+  aIndirecY: begin
+             tmp := ram[aPC+1].value;
+             addr := ram[tmp].value  + 256*ram[tmp+1].value + Y;
+    end;
+  end;
+  //Execute
   case idIns of
   i_ADC:;  //add with carry
   i_AND:;  //and (with accumulator)
@@ -640,10 +672,10 @@ begin
   i_BRK:;  //break / interrupt
   i_BVC:;  //branch on overflow clear
   i_BVS:;  //branch on overflow set
-  i_CLC:;  //clear carry
-  i_CLD:;  //clear decimal
-  i_CLI:;  //clear interrupt disable
-  i_CLV:;  //clear overflow
+  i_CLC:  STATUS_C := false;  //clear carry
+  i_CLD:  STATUS_D := false;  //clear decimal
+  i_CLI:  STATUS_I := false;  //clear interrupt disable
+  i_CLV:  STATUS_V := false;  //clear overflow
   i_CMP:;  //compare (with accumulator)
   i_CPX:;  //compare with X
   i_CPY:;  //compare with Y
@@ -683,9 +715,21 @@ begin
     Inc(nClck, nCycles);
     exit;
   end;  //jump subroutine
-  i_LDA:;  //load accumulator
-  i_LDX:;  //load X
-  i_LDY:;  //load Y
+  i_LDA: begin //load accumulator
+    W := ram[addr].value;
+    STATUS_Z := W = 0;
+    STATUS_N := W > 127;
+  end;
+  i_LDX: begin //load X
+    X := ram[addr].value;
+    STATUS_Z := X = 0;
+    STATUS_N := X > 127;
+  end;
+  i_LDY: begin //load y
+    Y := ram[addr].value;
+    STATUS_Z := Y = 0;
+    STATUS_N := Y > 127;
+  end;
   i_LSR:;  //logical shift right
   i_NOP:;  //no operation
   i_ORA:;  //or with accumulator
@@ -712,17 +756,33 @@ begin
     exit;
   end;
   i_SBC:;  //subtract with carry
-  i_SEC: begin  //set carry
-    STATUS_C := true;
+  i_SEC: STATUS_C := true;  //set carry
+  i_SED: STATUS_D := true;  //set decimal
+  i_SEI: STATUS_I := true;  //set interrupt disable
+  i_STA: begin //store accumulator
+    ram[addr].value := W;
   end;
-  i_SED:;  //set decimal
-  i_SEI:;  //set interrupt disable
-  i_STA:;  //store accumulator
-  i_STX:;  //store X
-  i_STY:;  //store Y
-  i_TAX:;  //transfer accumulator to X
-  i_TAY:;  //transfer accumulator to Y
-  i_TSX:;  //transfer stack pointer to X
+  i_STX: begin  //store X
+    ram[addr].value := X;
+  end;
+  i_STY: begin  //store Y
+    ram[addr].value := Y;
+  end;
+  i_TAX: begin  //transfer accumulator to X
+    X := W;
+    STATUS_Z := X = 0;
+    STATUS_N := X > 127;
+  end;
+  i_TAY: begin  //transfer accumulator to Y
+    Y := W;
+    STATUS_Z := Y = 0;
+    STATUS_N := Y > 127;
+  end;
+  i_TSX: begin  //transfer stack pointer to X
+    X := SP;
+    STATUS_Z := X = 0;
+    STATUS_N := X > 127;
+  end;
   i_TXA:;  //transfer X to accumulator
   i_TXS:;  //transfer X to stack pointer
   i_TYA:;  //transfer Y to accumulator
@@ -949,29 +1009,6 @@ begin
     w := resByte;
     STATUS_Z := resByte = 0;
   end;
-  i_CALL: begin
-    //Guarda dirección en Pila
-    STACK[SP] := PC.W;
-    if SP = 7 then begin
-      //Desborde de pila
-      SP := 0;
-      if OnExecutionMsg<>nil then OnExecutionMsg('Stack Overflow on CALL OpCode at $' + IntToHex(aPC,4));
-    end else begin
-      SP := SP +1;
-    end;
-    PC.W := k_;  //Takes the 11 bits from k
-    PC.H := PC.H or (PCLATH and %00011000);  //And complete with bits 3 and 4 of PCLATH
-    Inc(nClck,2);   //This instruction takes two cicles
-    exit;
-  end;
-  i_CLRWDT: begin
-  end;
-  i_GOTO: begin
-    PC.W := k_;  //Takes the 11 bits from k
-    PC.H := PC.H or (PCLATH and %00011000);  //And complete with bits 3 and 4 of PCLATH
-    Inc(nClck,2);   //This instruction takes two cicles
-    exit;
-  end;
   i_IORLW: begin
     resByte := W or k_;
     w := resByte;
@@ -979,48 +1016,6 @@ begin
   end;
   i_MOVLW: begin
       W := k_;
-  end;
-  i_RETFIE: begin
-    //Saca dirección en Pila
-    if SP = 0 then begin
-      //Desborde de pila
-      SP := 7;
-      if OnExecutionMsg<>nil then OnExecutionMsg('Stack Overflow on RETFIE OpCode at $' + IntToHex(aPC,4));
-    end else begin
-      SP := SP - 1;
-    end;
-    PC.W := STACK[SP];  //Should be 13 bits
-    Inc(nClck);   //Esta instrucción toma un ciclo más
-    //Activa GIE
-    INTCON_GIE := true;
-  end;
-  i_RETLW: begin
-    //Saca dirección en Pila
-    if SP = 0 then begin
-      //Desborde de pila
-      SP := 7;
-      if OnExecutionMsg<>nil then OnExecutionMsg('Stack Overflow on RETLW OpCode at $' + IntToHex(aPC,4));
-    end else begin
-      SP := SP - 1;
-    end;
-    PC.W := STACK[SP];  //Should be 13 bits
-    Inc(nClck);   //Esta instrucción toma un ciclo más
-    //Fija valor en W
-    W := k_;
-  end;
-  i_RETURN: begin
-    //Saca dirección en Pila
-    if SP = 0 then begin
-      //Desborde de pila
-      SP := 7;
-      if OnExecutionMsg<>nil then OnExecutionMsg('Stack Overflow on RETURN OpCode at $' + IntToHex(aPC,4));
-    end else begin
-      SP := SP - 1;
-    end;
-    PC.W := STACK[SP];  //Should be 13 bits
-    Inc(nClck);   //Esta instrucción toma un ciclo más
-  end;
-  i_SLEEP: begin
   end;
   i_SUBLW: begin
     resInt := k_ - W;
@@ -1363,8 +1358,8 @@ begin
   PIC16InstName[i_ADC].AddAddressMode(aAbsolute,$6D,3,4,'');
   PIC16InstName[i_ADC].AddAddressMode(aAbsolutX,$7D,3,4,'*');
   PIC16InstName[i_ADC].AddAddressMode(aAbsolutY,$79,3,4,'*');
-  PIC16InstName[i_ADC].AddAddressMode(aIdxIndir,$61,2,6,'');
-  PIC16InstName[i_ADC].AddAddressMode(aIndirIdx,$71,2,5,'*');
+  PIC16InstName[i_ADC].AddAddressMode(aIndirecX,$61,2,6,'');
+  PIC16InstName[i_ADC].AddAddressMode(aIndirecY,$71,2,5,'*');
   PIC16InstName[i_AND].name := 'AND';  //AND Memory with Accumulator
   PIC16InstName[i_AND].AddAddressMode(aImmediat,$29,2,2,'');
   PIC16InstName[i_AND].AddAddressMode(aZeroPage,$25,2,3,'');
@@ -1372,8 +1367,8 @@ begin
   PIC16InstName[i_AND].AddAddressMode(aAbsolute,$2D,3,4,'');
   PIC16InstName[i_AND].AddAddressMode(aAbsolutX,$3D,3,4,'*');
   PIC16InstName[i_AND].AddAddressMode(aAbsolutY,$39,3,4,'*');
-  PIC16InstName[i_AND].AddAddressMode(aIdxIndir,$21,2,6,'');
-  PIC16InstName[i_AND].AddAddressMode(aIndirIdx,$31,2,5,'*');
+  PIC16InstName[i_AND].AddAddressMode(aIndirecX,$21,2,6,'');
+  PIC16InstName[i_AND].AddAddressMode(aIndirecY,$31,2,5,'*');
   PIC16InstName[i_ASL].name := 'ASL';  //Shift Left One Bit (MemoryorAccumulator)
   PIC16InstName[i_ASL].AddAddressMode(aAcumulat,$0A,1,2,'');
   PIC16InstName[i_ASL].AddAddressMode(aZeroPage,$06,2,5,'');
@@ -1416,8 +1411,8 @@ begin
   PIC16InstName[i_CMP].AddAddressMode(aAbsolute,$CD,3,4,'');
   PIC16InstName[i_CMP].AddAddressMode(aAbsolutX,$DD,3,4,'*');
   PIC16InstName[i_CMP].AddAddressMode(aAbsolutY,$D9,3,4,'*');
-  PIC16InstName[i_CMP].AddAddressMode(aIdxIndir,$C1,2,6,'');
-  PIC16InstName[i_CMP].AddAddressMode(aIndirIdx,$D1,2,5,'*');
+  PIC16InstName[i_CMP].AddAddressMode(aIndirecX,$C1,2,6,'');
+  PIC16InstName[i_CMP].AddAddressMode(aIndirecY,$D1,2,5,'*');
   PIC16InstName[i_CPX].name := 'CPX';  //Compare Memory and Index X
   PIC16InstName[i_CPX].AddAddressMode(aImmediat,$E0,2,2,'');
   PIC16InstName[i_CPX].AddAddressMode(aZeroPage,$E4,2,3,'');
@@ -1442,8 +1437,8 @@ begin
   PIC16InstName[i_EOR].AddAddressMode(aAbsolute,$4D,3,4,'');
   PIC16InstName[i_EOR].AddAddressMode(aAbsolutX,$5D,3,4,'*');
   PIC16InstName[i_EOR].AddAddressMode(aAbsolutY,$59,3,4,'*');
-  PIC16InstName[i_EOR].AddAddressMode(aIdxIndir,$41,2,6,'');
-  PIC16InstName[i_EOR].AddAddressMode(aIndirIdx,$51,2,5,'*');
+  PIC16InstName[i_EOR].AddAddressMode(aIndirecX,$41,2,6,'');
+  PIC16InstName[i_EOR].AddAddressMode(aIndirecY,$51,2,5,'*');
   PIC16InstName[i_INC].name := 'INC';  //Increment Memory by One
   PIC16InstName[i_INC].AddAddressMode(aZeroPage,$E6,2,5,'');
   PIC16InstName[i_INC].AddAddressMode(aZeroPagX,$F6,2,6,'');
@@ -1465,8 +1460,8 @@ begin
   PIC16InstName[i_LDA].AddAddressMode(aAbsolute,$AD,3,4,'');
   PIC16InstName[i_LDA].AddAddressMode(aAbsolutX,$BD,3,4,'*');
   PIC16InstName[i_LDA].AddAddressMode(aAbsolutY,$B9,3,4,'*');
-  PIC16InstName[i_LDA].AddAddressMode(aIdxIndir,$A1,2,6,'');
-  PIC16InstName[i_LDA].AddAddressMode(aIndirIdx,$B1,2,5,'*');
+  PIC16InstName[i_LDA].AddAddressMode(aIndirecX,$A1,2,6,'');
+  PIC16InstName[i_LDA].AddAddressMode(aIndirecY,$B1,2,5,'*');
   PIC16InstName[i_LDX].name := 'LDX';  //Load Index X with Memory
   PIC16InstName[i_LDX].AddAddressMode(aImmediat,$A2,2,2,'');
   PIC16InstName[i_LDX].AddAddressMode(aZeroPage,$A6,2,3,'');
@@ -1494,8 +1489,8 @@ begin
   PIC16InstName[i_ORA].AddAddressMode(aAbsolute,$0D,3,4,'');
   PIC16InstName[i_ORA].AddAddressMode(aAbsolutX,$1D,3,4,'*');
   PIC16InstName[i_ORA].AddAddressMode(aAbsolutY,$19,3,4,'*');
-  PIC16InstName[i_ORA].AddAddressMode(aIdxIndir,$01,2,6,'');
-  PIC16InstName[i_ORA].AddAddressMode(aIndirIdx,$11,2,5,'*');
+  PIC16InstName[i_ORA].AddAddressMode(aIndirecX,$01,2,6,'');
+  PIC16InstName[i_ORA].AddAddressMode(aIndirecY,$11,2,5,'*');
   PIC16InstName[i_PHA].name := 'PHA';  //Push Accumulator on Stack
   PIC16InstName[i_PHA].AddAddressMode(aImplicit,$48,1,3,'');
   PIC16InstName[i_PHP].name := 'PHP';  //Push Processor Status on Stack
@@ -1527,8 +1522,8 @@ begin
   PIC16InstName[i_SBC].AddAddressMode(aAbsolute,$ED,3,4,'');
   PIC16InstName[i_SBC].AddAddressMode(aAbsolutX,$FD,3,4,'*');
   PIC16InstName[i_SBC].AddAddressMode(aAbsolutY,$F9,3,4,'*');
-  PIC16InstName[i_SBC].AddAddressMode(aIdxIndir,$E1,2,6,'');
-  PIC16InstName[i_SBC].AddAddressMode(aIndirIdx,$F1,2,5,'*');
+  PIC16InstName[i_SBC].AddAddressMode(aIndirecX,$E1,2,6,'');
+  PIC16InstName[i_SBC].AddAddressMode(aIndirecY,$F1,2,5,'*');
   PIC16InstName[i_SEC].name := 'SEC';  //Set Carry Flag
   PIC16InstName[i_SEC].AddAddressMode(aImplicit,$38,1,2,'');
   PIC16InstName[i_SED].name := 'SED';  //Set Decimal Flag
@@ -1541,8 +1536,8 @@ begin
   PIC16InstName[i_STA].AddAddressMode(aAbsolute,$8D,3,4,'');
   PIC16InstName[i_STA].AddAddressMode(aAbsolutX,$9D,3,5,'');
   PIC16InstName[i_STA].AddAddressMode(aAbsolutY,$99,3,5,'');
-  PIC16InstName[i_STA].AddAddressMode(aIdxIndir,$81,2,6,'');
-  PIC16InstName[i_STA].AddAddressMode(aIndirIdx,$91,2,6,'');
+  PIC16InstName[i_STA].AddAddressMode(aIndirecX,$81,2,6,'');
+  PIC16InstName[i_STA].AddAddressMode(aIndirecY,$91,2,6,'');
   PIC16InstName[i_STX].name := 'STX';  //Store Index X in Memory
   PIC16InstName[i_STX].AddAddressMode(aZeroPage,$86,2,3,'');
   PIC16InstName[i_STX].AddAddressMode(aZeroPagY,$96,2,4,'');
