@@ -1175,7 +1175,7 @@ begin
   Result := false;  //valor por defecto
   if size=0 then exit;
   maxRam := CPUMAXRAM;
-  for i:=0 to CPUMAXRAM-1 do begin  //verifica 1 a 1, por seguridad
+  for i:=iRam to maxRam-1 do begin  //verifica 1 a 1, por seguridad
     if HaveConsecRAM(i, size, maxRam) then begin
       //encontró del tamaño buscado
       UseConsecRAM(i, size);  //marca como usado
