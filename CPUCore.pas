@@ -21,8 +21,13 @@ type
     end;
 
   TCPUCellState = (
-     cs_impleGPR,   //Implemented. Can be used.
+     cs_implemen,   //Implemented. Can be used.
      cs_unimplem    //Not implemented.
+  );
+  TCPURamUsed = (
+     ruUnused,
+     ruCode,  //Used for code
+     ruVar    //Used for variable
   );
 
 type //Models for RAM memory
@@ -39,9 +44,9 @@ type //Models for RAM memory
     function Getvalue: byte;
     procedure Setvalue(AValue: byte);
   public
-    name   : string;     //Name of the register (for variables)
-    used   : boolean;    //Indicates if have been written
-    shared : boolean;    //Used to share this register
+    name   : string;      //Name of the register (for variables)
+    used   : TCPURamUsed; //Indicates if have been written
+    shared : boolean;     //Used to share this register
     state  : TCPUCellState; //Status of the cell
     property value: byte read Getvalue write Setvalue;
     property dvalue: byte read Fvalue write Fvalue;   //Direct access to "Fvalue".
@@ -98,7 +103,7 @@ type
     procedure DisableAllRAM;
     procedure SetStatRAM(i1, i2: word; status0: TCPUCellState);
     function SetStatRAMCom(strDef: string): boolean;
-    function HaveConsecRAM(const i, n: word; maxRam: word): boolean; //Indica si hay "n" bytes libres
+    function HaveConsecRAM(const i, n: word; maxRam: dword): boolean; //Indica si hay "n" bytes libres
     procedure UseConsecRAM(const i, n: word);  //Ocupa "n" bytes en la posición "i"
     procedure SetSharedUnused;
     procedure SetSharedUsed;
@@ -143,7 +148,7 @@ end;
 function TCPURamCell.Avail: boolean;
 {Indica si el registro es una dirección disponible en la memoria RAM.}
 begin
-  Result := (state = cs_impleGPR);
+  Result := (state = cs_implemen);
 end;
 
 { TCPUCore }
@@ -155,7 +160,7 @@ var
 begin
   for i:=0 to high(ram) do begin
     ram[i].dvalue := $00;
-    ram[i].used := false;
+    ram[i].used := ruUnused;
     ram[i].name:='';
     ram[i].shared := false;
     ram[i].breakPnt := false;
@@ -234,7 +239,7 @@ begin
       end;
       staMem := copy(com, 9, 3);
       case staMem of
-      'IMP': state := cs_impleGPR;
+      'IMP': state := cs_implemen;
       'NIM': state := cs_unimplem;
       else
         MsjError := 'Memory definition syntax error: Expected SFR or GPR';
@@ -247,18 +252,18 @@ begin
     coms.Destroy;
   end;
 end;
-function TCPUCore.HaveConsecRAM(const i, n: word; maxRam: word): boolean;
+function TCPUCore.HaveConsecRAM(const i, n: word; maxRam: dword): boolean;
 {Indica si hay "n" bytes consecutivos libres en la posicióm "i", en RAM.
 La búsqueda se hace solo hasta la posición "maxRam"}
 var
   c: Integer;
-  j: word;
+  j: dword;
 begin
   Result := false;
   c := 0;
   j := i;
   while (j<=maxRam) and (c<n) do begin
-    if (ram[j].state <> cs_impleGPR) or (ram[j].used) then exit;
+    if (ram[j].state <> cs_implemen) or (ram[j].used<>ruUnused) then exit;
     inc(c);      //verifica siguiente
     inc(j);
   end;
@@ -273,30 +278,28 @@ procedure TCPUCore.UseConsecRAM(const i, n: word);
 var j: word;
 begin
   for j:=i to i+n-1 do begin
-    ram[j].used := true;  //todos los bits
+    ram[j].used := ruVar;  //todos los bits
   end;
 end;
 procedure TCPUCore.SetSharedUnused;
-{Marca las posiciones que estén en "shared", como no usadas, para que se puedan
-usar nuevamente.}
+{Set positions marked as "shared", as unused for to be used again.}
 var
   i: Integer;
 begin
   for i:=0 to high(ram) do begin
-    if (ram[i].state = cs_impleGPR) and (ram[i].shared) then begin
-      ram[i].used := false;  //pone en cero
+    if (ram[i].state = cs_implemen) and (ram[i].shared) then begin
+      ram[i].used := ruUnused;
     end;
   end;
 end;
 procedure TCPUCore.SetSharedUsed;
-{Marca las posiciones que estén en "shared", como usadas, para que no se puedan
-usar nuevamente.}
+{Set positions marked as "shared", as used, for NOT to be used again.}
 var
   i: Integer;
 begin
   for i:=0 to high(ram) do begin
-    if (ram[i].state = cs_impleGPR) and (ram[i].shared) then begin
-      ram[i].used := true;  //pone en uno
+    if (ram[i].state = cs_implemen) and (ram[i].shared) then begin
+      ram[i].used := ruVar;  //Set as used for variables
     end;
   end;
 end;
@@ -306,7 +309,7 @@ var
 begin
   Result := 0;
   for i:=$0000 to CPUMAXRAM-1 do begin
-    if ram[i].used then inc(Result);
+    if ram[i].used<>ruUnused then inc(Result);
   end;
 end;
 //RAM name managment

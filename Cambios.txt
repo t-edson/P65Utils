@@ -1,3 +1,9 @@
+0.2
+===
+Se cambian variables a tipo dword para evitar desborde en TP6502.GetFreeBytes(). 
+Se cambia el tipo del  campo TCPURamCell.used al enumerado TCPURamUsed, para dar más libertad
+para definir a la RAM.
+
 0.1
 ===
 Se eliminan algunos campos no usados, porque esta librería se ha creado a partir de la librería

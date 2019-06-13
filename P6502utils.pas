@@ -197,7 +197,7 @@ type
     procedure ExploreUsed(rutExplorRAM: TCPURutExplorRAM);    //devuelve un reporte del uso de la RAM
     function ValidRAMaddr(addr: word): boolean;  //indica si una posición de memoria es válida
   public  //Métthods to code instructions according to syntax
-    procedure useRAM;
+    procedure useRAMCode;
     procedure codByte(const value: byte; isData: boolean);
     procedure codAsm(const inst: TP6502Inst; addMode: TP6502AddMode; param: word);
     procedure cod_JMP_at(iRam0: integer; const k: word);
@@ -249,11 +249,11 @@ begin
 end;
 
 { TP6502 }
-procedure TP6502.useRAM;
+procedure TP6502.useRAMCode;
 {Marca la posición actual, como usada, e incrementa el puntero iRam. Si hay error,
 actualiza el campo "MsjError"}
 begin
-  ram[iRam].used := true;  //marca como usado
+  ram[iRam].used := ruCode;  //marca como usado
   inc(iRam);
 end;
 procedure TP6502.codByte(const value: byte; isData: boolean);
@@ -265,7 +265,8 @@ begin
   end;
   ram[iRam].value := value;
   if isData then ram[iRam].name := 'data';
-  useRAM;  //marca como usado e incrementa puntero.
+  ram[iRam].used := ruVar;  //marca como usado
+  inc(iRam);
 end;
 procedure TP6502.codAsm(const inst: TP6502Inst; addMode: TP6502AddMode; param: word);
 {General routine to codify assembler instructions.}
@@ -284,7 +285,7 @@ begin
     exit;
   end;
   ram[iRam].value := rInst.instrInform[addMode].Opcode;
-  useRAM;  //marca como usado e incrementa puntero.
+  useRAMCode;  //marca como usado e incrementa puntero.
   //Codifica parámetros
   case addMode of
   aImplicit: begin
@@ -310,55 +311,55 @@ begin
       MsjError:= 'Invalid Address Mode (Immediate)';
     end;
     ram[iRam].value := lo(param);  //escribe parámetro
-    useRAM;
+    useRAMCode;
   end;
   aAbsolute:begin
     ram[iRam].value := lo(param);
-    useRAM;
+    useRAMCode;
     ram[iRam].value := hi(param);
-    useRAM;
+    useRAMCode;
   end;
   aZeroPage:begin
     ram[iRam].value := lo(param);
-    useRAM;
+    useRAMCode;
   end;
   aRelative:begin
     ram[iRam].value := lo(param);
-    useRAM;
+    useRAMCode;
   end;
   aIndirect:begin
     ram[iRam].value := lo(param);
-    useRAM;
+    useRAMCode;
     ram[iRam].value := hi(param);
-    useRAM;
+    useRAMCode;
   end;
   aAbsolutX:begin
     ram[iRam].value := lo(param);
-    useRAM;
+    useRAMCode;
     ram[iRam].value := hi(param);
-    useRAM;
+    useRAMCode;
   end;
   aAbsolutY:begin
     ram[iRam].value := lo(param);
-    useRAM;
+    useRAMCode;
     ram[iRam].value := hi(param);
-    useRAM;
+    useRAMCode;
   end;
   aZeroPagX:begin
     ram[iRam].value := lo(param);
-    useRAM;
+    useRAMCode;
   end;
   aZeroPagY:begin
     ram[iRam].value := lo(param);
-    useRAM;
+    useRAMCode;
   end;
   aIndirecX:begin
     ram[iRam].value := lo(param);
-    useRAM;
+    useRAMCode;
   end;
   aIndirecY:begin
     ram[iRam].value := lo(param);
-    useRAM;
+    useRAMCode;
   end;
   else
     raise Exception.Create('Implementation Error.');
@@ -1093,7 +1094,7 @@ begin
       stopped := true;
       exit;
     end;
-    if not ram[_pc].used then begin
+    if ram[_pc].used = ruUnused then begin
       //Encontró un BreakPoint, sale sin ejecutar esa instrucción
       if OnExecutionMsg<>nil then OnExecutionMsg('Stopped for executing unused code.');
       stopped := true;
@@ -1150,9 +1151,9 @@ begin
   maxRam := CPUMAXRAM;  //posición máxima
   //Realmente debería explorar solo hasta la dirección implementada, por eficiencia
   for i:=iRam to maxRam-1 do begin
-    if (ram[i].state = cs_impleGPR) and (not ram[i].used) then begin
+    if (ram[i].state = cs_implemen) and (ram[i].used = ruUnused) then begin
       //Esta dirección está libre
-      ram[i].used := true;   //marca como usado
+      ram[i].used := ruVar;   //marca como usado para variable
       if shared then begin
         ram[i].shared := true;  //Marca como compartido
       end;
@@ -1168,8 +1169,8 @@ function TP6502.GetFreeBytes(const size: integer; var addr: word): boolean;
  del tamaño indicado. Si encuentra espacio, devuelve TRUE.
  El tamaño se da en bytes, pero si el valor es negativo, se entiende que es en bits.}
 var
-  i: word;
-  maxRam: Word;
+  i: dword;
+  maxRam: dWord;
 begin
   Result := false;  //valor por defecto
   if size=0 then exit;
@@ -1203,7 +1204,7 @@ var
 begin
   Result := 0;
   for i := 0 to CPUMAXRAM - 1 do begin
-    if ram[i].Avail and (ram[i].used) then begin
+    if ram[i].Avail and (ram[i].used<>ruUnused) then begin
       //Notar que "AvailGPR" asegura que no se consideran registros maepados
       Result := Result + 1;
     end;
@@ -1215,7 +1216,7 @@ var
   i: Integer;
 begin
   for i := 0 to CPUMAXRAM - 1 do begin
-    if ram[i].Avail and (ram[i].used) then begin
+    if ram[i].Avail and (ram[i].used<>ruUnused) then begin
       rutExplorRAM(i, @ram[i]);
     end;
   end;
@@ -1245,21 +1246,25 @@ begin
   end;
   i := minUsed;
   while i <= maxUsed do begin
-    //Verifica si es variable
-    if ram[i].name <> '' then begin
-      //Escribe en forma de variable
-      if incAdrr then begin
-        lOut.Add( PadRight(ram[i].name, Length(SPACEPAD)) + '$'+IntToHex(i,4) + ' DB ??');
-      end else begin
-        lOut.Add( PadRight(ram[i].name, Length(SPACEPAD)) + 'DB ??');
-      end;
-      i := i + 1;
-      continue;
-    end;
     //Lee comentarios y etiqueta
     lblLin := ram[i].topLabel;
     comLat := ram[i].sideComment;
     comLin := ram[i].topComment;
+    //Verifica si es variable
+    if ram[i].used = ruVar then begin
+      //Escribe en forma de variable
+      if incAdrr then begin
+        if comLin<>'' then lOut.add(comLin);
+        //lOut.Add( PadRight(ram[i].name, Length(SPACEPAD)) + '$'+IntToHex(i,4) + ' DB ??');
+        lOut.Add( PadRight(ram[i].name, Length(SPACEPAD)) + '$'+IntToHex(i,4) + ' DB ' +
+                  IntToHEx(ram[i].value,2) );
+      end else begin
+        //lOut.Add( PadRight(ram[i].name, Length(SPACEPAD)) + 'DB ??');
+        lOut.Add( PadRight(ram[i].name, Length(SPACEPAD)) + 'DB ' + IntToHEx(ram[i].value,2) );
+      end;
+      i := i + 1;
+      continue;
+    end;
     //Escribe etiqueta al inicio de línea
     if lblLin<>'' then lOut.Add(lblLin+':');
     //Escribe comentario al inicio de línea
@@ -1309,7 +1314,7 @@ begin
   maxUsed := 0;
   //Busca dirección de inicio usada
   for i := 0 to CPUMAXRAM-1 do begin
-    if ram[i].used then begin
+    if ram[i].used<>ruUnused then begin
       if i<minUsed then minUsed := i;
       if i>maxUsed then maxUsed := i;
     end;
@@ -1333,7 +1338,7 @@ begin
   SetLength(ram, CPUMAXRAM);
   //inicia una configuración común
   ClearMemRAM;
-  SetStatRAM($020, $04F, cs_impleGPR);
+  SetStatRAM($020, $04F, cs_implemen);
 
   //Estado inicial
   iRam := 0;   //posición de inicio
