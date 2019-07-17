@@ -128,7 +128,7 @@ begin
     //Extract parameters
     if l = '' then begin
         //No parameters. Must be Implicit
-        pic.codAsmFD(idInst, aImplicit , 0);
+        pic.codAsm(idInst, aImplicit , 0);
         if pic.MsjError<>'' then begin
           Application.MessageBox(PChar(lin + ':' + pic.MsjError),'');
           exit;
@@ -137,7 +137,7 @@ begin
         //It's a string
         if Par = 'A' then begin
           //Accumulator mode
-          pic.codAsmFD(idInst, aAcumulat , 0);
+          pic.codAsm(idInst, aAcumulat , 0);
           if pic.MsjError<>'' then begin
             Application.MessageBox(PChar(lin + ':' + pic.MsjError),'');
             exit;
@@ -149,14 +149,14 @@ begin
         //There is a number
         if n<256 then begin
           //Zero page. Although could be ,X
-          pic.codAsmFD(idInst, aZeroPage , 0);
+          pic.codAsm(idInst, aZeroPage , 0);
           if pic.MsjError<>'' then begin
             Application.MessageBox(PChar(lin + ':' + pic.MsjError),'');
             exit;
           end;
         end else begin
           //Absolute. Although could be ,X
-          pic.codAsmFD(idInst, aAbsolute , 0);
+          pic.codAsm(idInst, aAbsolute , 0);
           if pic.MsjError<>'' then begin
             Application.MessageBox(PChar(lin + ':' + pic.MsjError),'');
             exit;

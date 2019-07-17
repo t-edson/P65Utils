@@ -21,13 +21,15 @@ type
     end;
 
   TCPUCellState = (
-     cs_implemen,   //Implemented. Can be used.
+     cs_impleSFR,   //Implemented. Used by Oeprative System o Kernel
+     cs_impleGPR,   //Implemented. Can be used.
      cs_unimplem    //Not implemented.
   );
   TCPURamUsed = (
-     ruUnused,
-     ruCode,  //Used for code
-     ruVar    //Used for variable
+     ruUnused,  //(NOT included in PRG output file)
+     ruCode,    //Used for code  (included in PRG output file)
+     ruData,    //Used for variables  (included in PRG output file)
+     ruAbsData  //Used for variables in absolute positions (NOT included in PRG output file)
   );
 
 type //Models for RAM memory
@@ -103,6 +105,7 @@ type
     procedure DisableAllRAM;
     procedure SetStatRAM(i1, i2: word; status0: TCPUCellState);
     function SetStatRAMCom(strDef: string): boolean;
+    function SetDataAddr(strDef: string): boolean;
     function HaveConsecRAM(const i, n: word; maxRam: dword): boolean; //Indica si hay "n" bytes libres
     procedure UseConsecRAM(const i, n: word);  //Ocupa "n" bytes en la posición "i"
     procedure SetSharedUnused;
@@ -148,7 +151,7 @@ end;
 function TCPURamCell.Avail: boolean;
 {Indica si el registro es una dirección disponible en la memoria RAM.}
 begin
-  Result := (state = cs_implemen);
+  Result := (state = cs_impleGPR);
 end;
 
 { TCPUCore }
@@ -239,10 +242,10 @@ begin
       end;
       staMem := copy(com, 9, 3);
       case staMem of
-      'IMP': state := cs_implemen;
+      'IMP': state := cs_impleGPR;
       'NIM': state := cs_unimplem;
       else
-        MsjError := 'Memory definition syntax error: Expected SFR or GPR';
+        MsjError := 'Memory definition syntax error: Expected IMP or NIM';
         exit(false);
       end;
       //Ya se tienen los parámetros, para definir la memoria
@@ -251,6 +254,10 @@ begin
   finally
     coms.Destroy;
   end;
+end;
+function TCPUCore.SetDataAddr(strDef: string): boolean;
+begin
+
 end;
 function TCPUCore.HaveConsecRAM(const i, n: word; maxRam: dword): boolean;
 {Indica si hay "n" bytes consecutivos libres en la posicióm "i", en RAM.
@@ -263,7 +270,7 @@ begin
   c := 0;
   j := i;
   while (j<=maxRam) and (c<n) do begin
-    if (ram[j].state <> cs_implemen) or (ram[j].used<>ruUnused) then exit;
+    if (ram[j].state <> cs_impleGPR) or (ram[j].used<>ruUnused) then exit;
     inc(c);      //verifica siguiente
     inc(j);
   end;
@@ -278,7 +285,7 @@ procedure TCPUCore.UseConsecRAM(const i, n: word);
 var j: word;
 begin
   for j:=i to i+n-1 do begin
-    ram[j].used := ruVar;  //todos los bits
+    ram[j].used := ruData;  //todos los bits
   end;
 end;
 procedure TCPUCore.SetSharedUnused;
@@ -287,7 +294,7 @@ var
   i: Integer;
 begin
   for i:=0 to high(ram) do begin
-    if (ram[i].state = cs_implemen) and (ram[i].shared) then begin
+    if (ram[i].shared) and (ram[i].state = cs_impleGPR) then begin
       ram[i].used := ruUnused;
     end;
   end;
@@ -298,8 +305,8 @@ var
   i: Integer;
 begin
   for i:=0 to high(ram) do begin
-    if (ram[i].state = cs_implemen) and (ram[i].shared) then begin
-      ram[i].used := ruVar;  //Set as used for variables
+    if (ram[i].shared) and (ram[i].state = cs_impleGPR) then begin
+      ram[i].used := ruData;  //Set as used for variables
     end;
   end;
 end;
@@ -354,6 +361,7 @@ end;
 procedure TCPUCore.addTopComm(comm: string; replace: boolean);
 {Agrega un comentario de línea al código en la posición de memoria actual}
 begin
+  if iRam>=CPUMAXRAM then exit;
   if replace then begin
     ram[iRam].topComment := comm;
   end else begin
