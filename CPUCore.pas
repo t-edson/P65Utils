@@ -99,14 +99,13 @@ type
     maxUsed  : dword;         //Dirección mayor de la ROM usdas
     hexLines : TStringList;  //Uusado para crear archivo *.hex
   public  //Memories
-    ram    : TCPURam;   //memoria RAM
+    ram    : TCPURam;   //RAM memory
     iRam   : integer;   //puntero a la memoria RAM, para escribir cuando se ensambla o compila código.
     function DisassemblerAt(addr: word; out nBytesProc: byte; useVarName: boolean
       ): string; virtual; abstract; //Desensambla la instrucción actual
   public  //RAM memory functions
-    hasDataAdrr: integer; //Flag/index to indicate a Data block has defined.
-    dataAddr1: integer;   //Start address for Data variables (-1 if not used)
-    dataAddr2: integer;
+    dataAddr1: integer;   //Start address for Data variables (-1 if not used). Used too as flag.
+    dataAddr2: integer;   //End address for Data variables (-1 if not used)
     procedure ClearMemRAM;
     procedure DisableAllRAM;
     procedure SetStatRAM(i1, i2: word; status0: TCPUCellState);
@@ -129,7 +128,7 @@ type
     procedure Exec; virtual; abstract; //Ejecuta instrucción actual
     procedure ExecTo(endAdd: word); virtual; abstract; //Ejecuta hasta cierta dirección
     procedure ExecStep; virtual; abstract; //Execute one instruction considering CALL as one instruction
-    procedure ExecNCycles(nCyc: integer; out stopped: boolean); virtual; abstract; //Ejecuta hasta cierta dirección
+    procedure ExecNCycles(nCyc: integer; out stopped: boolean); virtual; abstract; //Execute "n" cycles
     procedure Reset(hard: boolean); virtual; abstract;
     function ReadPC: dword; virtual; abstract;  //Defined DWORD to cover the 18F PC register
     procedure WritePC(AValue: dword); virtual; abstract;
@@ -312,7 +311,7 @@ begin
 
   com := UpCase(trim(strDef));
   if com='' then begin
-    hasDataAdrr := -1; //Disable
+    dataAddr1 := -1; //Disable
     exit;
   end;
   //Find Address1
@@ -328,7 +327,6 @@ begin
     exit(false);
   end;
   //Ya se tienen los parámetros, para definir la memoria
-  hasDataAdrr := add1;  //Set flag
   dataAddr1 := add1;    //Save
   dataAddr2 := add2;    //Save end
 end;
@@ -466,7 +464,7 @@ end;
 //Initialization
 constructor TCPUCore.Create;
 begin
-  hasDataAdrr := -1;  //Disable
+  dataAddr1 := -1; //Disable
   hexLines := TStringList.Create;
   frequen := 1000000;    //4MHz
 end;

@@ -1,3 +1,8 @@
+0.3
+===
+Se elimina la bandera hasDataAdrr y se pasa a usar dataAddr1, como bandera y dirección inicial.
+Se corrige un error en la ejecución de la instrucción ROL.
+
 0.2
 ===
 Se cambian variables a tipo dword para evitar desborde en TP6502.GetFreeBytes(). 
