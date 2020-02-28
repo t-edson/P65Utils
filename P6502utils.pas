@@ -132,16 +132,14 @@ const  //Constants of address and bit positions for some registers
   _N      = 7;
 //  _IRP   = 7;
 type
-  {Objeto que representa al hardware de un PIC de la serie 16}
+  {Object representing CPU6502 hardware}
   { TP6502 }
   TP6502 = class(TCPUCore)
-  public  //Campos para desensamblar instrucciones
-    idIns: TP6502Inst;    //ID de Instrucción.
-    modIns: TP6502AddMode; //Modo de direccionamiento
-    parIns: word;        //Parámetro de instrucción. Válido solo en algunas instrucciones.
-    b_   : byte;         //Bit destino. Válido solo en algunas instrucciones.
-    k_   : word;         //Parámetro Literal. Válido solo en algunas instrucciones.
-  private //Campos para procesar instrucciones
+  public  //Fields to disassembler instructions
+    idIns: TP6502Inst;     //Instruction ID
+    modIns: TP6502AddMode; //Address mode
+    parIns: word;          //Instruction parameter. Only valid for some instructions.
+  private //Fields to process instructions
     function GetINTCON: byte;
     function GetINTCON_GIE: boolean;
     function GetSTATUS_C: boolean;
@@ -160,11 +158,11 @@ type
     procedure SetFRAM(value: byte);
     function GetFRAM: byte;
   public  //Fields to modelate internal register (For Simulation)
-    W        : byte;   //Work register
-    X,Y      : byte;   //Index registers
+    W        : byte;    //Work register
+    X,Y      : byte;    //Index registers
     PC       : TWordRec; //PC as record to fast access for bytes
-    SP       : byte;   //Stack Pointer
-    SR       : byte;   //Status Register
+    SP       : byte;    //Stack Pointer
+    SR       : byte;    //Status Register
     property STATUS: byte read SR;
     property STATUS_N: boolean read GetSTATUS_N write SetSTATUS_N;
     property STATUS_V: boolean read GetSTATUS_V write SetSTATUS_V;
@@ -197,7 +195,7 @@ type
     function UsedMemRAM: word;  //devuelve el total de memoria RAM usada
     procedure ExploreUsed(rutExplorRAM: TCPURutExplorRAM);    //devuelve un reporte del uso de la RAM
     function ValidRAMaddr(addr: word): boolean;  //indica si una posición de memoria es válida
-  public  //Métthods to code instructions according to syntax
+  public  //Methods to code instructions according to syntax
     procedure useRAMCode;
     procedure codByte(const value: byte; isData: boolean);
     procedure codAsm(const inst: TP6502Inst; addMode: TP6502AddMode; param: word);
@@ -215,7 +213,7 @@ type
     destructor Destroy; override;
   end;
 
-var  //variables globales
+var  //Global variables
   //mnemónico de las instrucciones
   PIC16InstName: array[low(TP6502Inst)..high(TP6502Inst)] of TP6502Instruct;
 
@@ -251,10 +249,9 @@ end;
 
 { TP6502 }
 procedure TP6502.useRAMCode;
-{Marca la posición actual, como usada, e incrementa el puntero iRam. Si hay error,
-actualiza el campo "MsjError"}
+{Set current position as used and increase the index iRam. If error;update "MsjError"}
 begin
-  ram[iRam].used := ruCode;  //marca como usado
+  ram[iRam].used := ruCode;  //Mark as used.
   inc(iRam);
 end;
 procedure TP6502.codByte(const value: byte; isData: boolean);
@@ -266,7 +263,7 @@ begin
   end;
   ram[iRam].value := value;
   if isData then ram[iRam].name := 'data';
-  ram[iRam].used := ruData;  //marca como usado
+  ram[iRam].used := ruData;  //Mark as used.
   inc(iRam);
 end;
 procedure TP6502.codAsm(const inst: TP6502Inst; addMode: TP6502AddMode; param: word);
@@ -286,8 +283,8 @@ begin
     exit;
   end;
   ram[iRam].value := rInst.instrInform[addMode].Opcode;
-  useRAMCode;  //marca como usado e incrementa puntero.
-  //Codifica parámetros
+  useRAMCode;  //Set as used and increase index.
+  //Encode parameters
   case addMode of
   aImplicit: begin
     //No parameters
@@ -400,8 +397,8 @@ end;
 //  ram[iRam0].value := ram[iRam0].value XOR %10000000000;
 //end;
 function TP6502.FindOpcode(Op: string): TP6502Inst;
-{Busca una cádena que represente a una instrucción (Opcode). Si encuentra devuelve
- el identificador de instrucción . Si no encuentra devuelve "i_Inval". }
+{Search a string that represent an instruction (Opcode). If found, returns the
+instruction identifier, otherwise returns "i_Inval". }
 var
   idInst: TP6502Inst;
   tmp: String;
@@ -413,7 +410,7 @@ begin
       exit;
     end;
   end;
-  //No encontró
+  //No found.
   Result := i_Inval;
 end;
 function TP6502.IsRelJump(idInst: TP6502Inst): boolean;
@@ -983,7 +980,7 @@ begin
     else tmp := ram[addr].value;
 
     C_tmp := STATUS_C;
-    STATUS_C := (tmp and $07) <> 0;  //Get bit 7
+    STATUS_C := (tmp and $80) <> 0;  //Get bit 7
     tmp := byte(tmp << 1);
     if C_tmp then tmp := tmp or $01;  //Insert bit 0
     STATUS_Z := tmp = 0;

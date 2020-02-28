@@ -1,3 +1,10 @@
+0.4
+===
+Se corrige un error con la ejecución de la instrucción ROL.
+Se traducen algunos comentarios al inglés.
+Se elimina el campo TP6502.b_ porque no se usa.
+Se elimina el campo TP6502.k_ porque no se usa.
+
 0.3
 ===
 Se elimina la bandera hasDataAdrr y se pasa a usar dataAddr1, como bandera y dirección inicial.

@@ -107,7 +107,7 @@ var
   l: String;
   idInst: TP6502Inst;
   Inst: String;
-  stx, lin, Par: String;
+  lin, Par: String;
   n: word;
 begin
   pic.iRam:=0;       //Start to code at $0000
