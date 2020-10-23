@@ -203,6 +203,7 @@ type
     procedure cod_REL_JMP_at(iRam0: integer; const k: word);
     function codInsert(iRam0, nInsert, nWords: integer): boolean;
   public  //Aditional methods
+    function FindOpcode(Op: string): TP6502Inst;  //Find Opcode
     function IsRelJump(idInst: TP6502Inst): boolean;  //Idnetify realtive jumps Opcodes
     procedure GenHex(hexFile: string; startAddr: integer = - 1);  //genera un archivo hex
     procedure DumpCodeAsm(lOut: TStrings; incAdrr, incValues, incCom,
@@ -216,30 +217,7 @@ var  //Global variables
   //mnemónico de las instrucciones
   PIC16InstName: array[low(TP6502Inst)..high(TP6502Inst)] of TP6502Instruct;
 
-
-  function FindOpcode(txt: string; out opCode: TP6502Inst): boolean;
-
 implementation
-
-function FindOpcode(txt: string; out opCode: TP6502Inst): boolean;
-{Search a string that represent an instruction (Opcode). If found, returns TRUE and
-the instruction identifier in "opCode", otherwise returns FALSE and "i_Inval" in
-"opCode". }
-var
-  idInst: TP6502Inst;
-  tmp: String;
-begin
-  tmp := UpperCase(txt);
-  for idInst := low(TP6502Inst) to high(TP6502Inst) do begin
-    if PIC16InstName[idInst].name = tmp then begin
-      opCode := idInst;
-      exit(true);
-    end;
-  end;
-  //No found.
-  opCode := i_Inval;
-  exit(false);
-end;
 
 { TP6502Instruct }
 
@@ -411,6 +389,29 @@ begin
   for i:= iRam + nInsert + nWords -1 downto iRam + nWords do begin
     ram[i] := ram[i-nInsert];
   end;
+end;
+//procedure TP6502.BTFSC_sw_BTFSS(iRam0: integer);
+//{Exchange instruction i_BTFSC to i_BTFSS, or viceversa, in the specified address.}
+//begin
+//  //Solo necesita cambiar el bit apropiado
+//  ram[iRam0].value := ram[iRam0].value XOR %10000000000;
+//end;
+function TP6502.FindOpcode(Op: string): TP6502Inst;
+{Search a string that represent an instruction (Opcode). If found, returns the
+instruction identifier, otherwise returns "i_Inval". }
+var
+  idInst: TP6502Inst;
+  tmp: String;
+begin
+  tmp := UpperCase(Op);
+  for idInst := low(TP6502Inst) to high(TP6502Inst) do begin
+    if PIC16InstName[idInst].name = tmp then begin
+      Result := idInst;
+      exit;
+    end;
+  end;
+  //No found.
+  Result := i_Inval;
 end;
 function TP6502.IsRelJump(idInst: TP6502Inst): boolean;
 {Returns TRUE if the instruction accept the relative address mode}
