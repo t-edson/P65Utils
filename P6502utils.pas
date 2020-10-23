@@ -196,6 +196,7 @@ type
     procedure ExploreUsed(rutExplorRAM: TCPURutExplorRAM);    //devuelve un reporte del uso de la RAM
     function ValidRAMaddr(addr: word): boolean;  //indica si una posición de memoria es válida
   public  //Methods to code instructions according to syntax
+    disableCodegen: boolean;   //Flag to disable the Code generation.
     procedure useRAMCode;
     procedure codByte(const value: byte; isData: boolean);
     procedure codAsm(const inst: TP6502Inst; addMode: TP6502AddMode; param: word);
@@ -293,6 +294,7 @@ procedure TP6502.codAsm(const inst: TP6502Inst; addMode: TP6502AddMode; param: w
 var
   rInst: TP6502Instruct;
 begin
+  if disableCodegen then exit;  //Test flag
   rInst := PIC16InstName[inst];
   //Overflow protection
   if iRam >= CPUMAXRAM then begin

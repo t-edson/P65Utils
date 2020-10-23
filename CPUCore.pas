@@ -427,6 +427,7 @@ begin
 end;
 procedure TCPUCore.addTopLabel(lbl: string);
 begin
+  if iRam>=CPUMAXRAM then exit;
   ram[iRam].topLabel := lbl;
 end;
 procedure TCPUCore.addTopComm(comm: string; replace: boolean);
