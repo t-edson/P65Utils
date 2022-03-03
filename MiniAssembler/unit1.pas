@@ -120,8 +120,7 @@ begin
       exit;
     end;
     //Find mnemonic, and parameters
-    idInst := pic.FindOpcode(Inst);
-    if idInst = i_Inval then begin
+    if not FindOpcode(Inst, idInst) then begin
       Application.MessageBox(PChar('Invalid Opcode: '+ Inst),'');
       exit;
     end;
@@ -169,7 +168,7 @@ begin
     end;
   end;
   pic.GenHex(Application.ExeName + '.hex');
-  Memo2.Lines.LoadFromFile(Application.ExeName + '.hex');
+  Memo2.Lines.LoadFromFile(Application.ExeName + '.hex');  //*** This is binary. Show nothing.
 end;
 
 procedure TForm1.FormCreate(Sender: TObject);
