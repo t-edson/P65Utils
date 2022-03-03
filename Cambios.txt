@@ -3,6 +3,7 @@
 04/09/2020: Se mueve el método FindOpcode() fuera del objeto TP6502Instruct.
 22/10/2020: Se agrega protección de dirección excesiva, a TCPUCore.addTopLabel(). 
 23/10/2020: Se crea la bandera pic.disableCodegen.
+03/03/2022: Se agrega TP6502Instruct.HasOpcode() y se corrige TP6502.Decode().
 
 
 0.4
