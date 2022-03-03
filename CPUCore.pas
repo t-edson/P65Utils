@@ -28,7 +28,7 @@ type
   TCPURamUsed = (
      ruUnused,  //(NOT included in PRG output file)
      ruCode,    //Used for code  (included in PRG output file)
-     ruData,    //Used for variables  (included in PRG output file)
+     ruData,    //Used for variables (included in PRG output file)
      ruAbsData  //Used for variables in absolute positions (NOT included in PRG output file)
   );
 
@@ -207,17 +207,17 @@ var
   i: Integer;
 begin
   for i:=0 to high(ram) do begin
-    ram[i].dvalue    := $00;
-    ram[i].used      := ruUnused;
-    ram[i].name      :='';
-    ram[i].shared    := false;
-    ram[i].breakPnt  := false;
-    ram[i].topLabel  := '';
+    ram[i].dvalue     := $00;
+    ram[i].used       := ruUnused;
+    ram[i].name       :='';
+    ram[i].shared     := false;
+    ram[i].breakPnt   := false;
+    ram[i].topLabel   := '';
     ram[i].sideComment:= '';
-    ram[i].topComment:= '';
-    ram[i].idFile    := -1;           //Not initialized.
+    ram[i].topComment := '';
+    ram[i].idFile     := -1;        //Not initialized.
     {Don't change the implementation. Because "state" must be defined just once at the
-    First Pass when processing $CLEAR_STATE_RAM and $SET_STATE_RAM }
+    beginning }
 //    ram[i].state     := cs_impleGPR;
   end;
 end;
