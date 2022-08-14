@@ -16,7 +16,7 @@ unit P6502utils;
 {$mode objfpc}{$H+}
 interface
 uses
-  Classes, SysUtils, LCLProc, CPUCore, strutils;
+  Classes, SysUtils, CPUCore, strutils;
 type  //Instructions set
   TP6502Inst = (
     i_ADC,  //add with carry

@@ -9,14 +9,14 @@ object Form1: TForm1
   DesignTimePPI = 120
   OnCreate = FormCreate
   OnDestroy = FormDestroy
-  LCLVersion = '2.0.12.0'
+  LCLVersion = '2.2.0.4'
   object Memo1: TMemo
     Left = 12
     Height = 390
     Top = 50
     Width = 238
     Lines.Strings = (
-      'LDA'
+      'LDA $12'
       'STA $10'
     )
     ParentFont = False
@@ -46,7 +46,6 @@ object Form1: TForm1
     Top = 12
     Width = 39
     Caption = 'CODE'
-    ParentColor = False
     ParentFont = False
   end
   object Label2: TLabel
@@ -55,7 +54,6 @@ object Form1: TForm1
     Top = 12
     Width = 58
     Caption = 'HEX FILE'
-    ParentColor = False
     ParentFont = False
   end
 end
