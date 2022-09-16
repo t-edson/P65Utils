@@ -1,3 +1,7 @@
+16/09/2022: Se coorige ejecución de instrucción SBC.
+16/09/2022: Se separa el tipo ruCode en dos tipos ruCodeOp y ruCodeDa.
+16/09/2022: Se agrega protección a desborde en la instrucción i_ASL.
+
 0.5 
 ===
 04/09/2020: Se mueve el método FindOpcode() fuera del objeto TP6502Instruct.

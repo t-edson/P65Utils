@@ -26,10 +26,11 @@ type
      cs_unimplem    //Not implemented.
   );
   TCPURamUsed = (
-     ruUnused,  //(NOT included in PRG output file)
-     ruCode,    //Used for code  (included in PRG output file)
-     ruData,    //Used for variables (included in PRG output file)
-     ruAbsData  //Used for variables in absolute positions (NOT included in PRG output file)
+     ruUnused,  //(NOT included in PRG output file).
+     ruCodeOp,  //Used for code Opcode (included in PRG output file).
+     ruCodeDa,  //Used for code Operand (included in PRG output file).
+     ruData,    //Used for variables (included in PRG output file).
+     ruAbsData  //Used for variables in absolute positions (NOT included in PRG output file).
   );
 
 type //Models for RAM memory
@@ -45,19 +46,19 @@ type //Models for RAM memory
     Fvalue  : byte;     //value of the memory
     function Getvalue: byte;
     procedure Setvalue(AValue: byte);
-  public
-    name   : string;      //Name of the register (for variables)
-    used   : TCPURamUsed; //Indicates if have been written
-    shared : boolean;     //Used to share this register
-    state  : TCPUCellState; //Status of the cell
-    property value: byte read Getvalue write Setvalue;
+  public    //General fields
+    name   : string;           //Register name (for variables).
+    used   : TCPURamUsed;      //Indicates if have been written.
+    shared : boolean;          //Used to share this register.
+    state  : TCPUCellState;    //Status of the cell.
+    property value : byte read Getvalue write Setvalue;
     property dvalue: byte read Fvalue write Fvalue;   //Direct access to "Fvalue".
-    function Avail: boolean;  //RAM implemented to use in programs
-    function Free: boolean;   //RAM implemented and unused
-  public  //Campos para deputación
+    function Avail : boolean;  //RAM implemented to use in programs
+    function Free  : boolean;  //RAM implemented and unused
+  public    //Debugging fields
     breakPnt  : boolean;  //Indicates if this cell have a Breakpoint
     {Be careful on the size of this record, because it's going to be multiplied by 64K}
-  public     //Information of position in source code. Used for debug
+  public    //Information of position in source code. Used for debug
     rowSrc    : word;     //Row number
     colSrc    : word;     //Column number
     idFile    : SmallInt; //Index to a file. No load the name to save space.
@@ -65,7 +66,6 @@ type //Models for RAM memory
     {Estos campos de cadena ocupan bastante espacio, aún cuado están en NULL. Si se
     quisiera optimizar el uso de RAM, se podría pensar en codificar, varios campos en
     una sola cadena.}
-    topLabel   : string;  //Label on the top of the cell.
     topComment : string;  //Comment on the top of the cell.
     sideComment: string;  //Right comment to code
   end;
@@ -84,26 +84,26 @@ type
   public //Limits
     {This variables are set just one time. So they work as constant.}
     CPUMAXRAM: dword;  //Max virtual RAM used by the CPU
-  public   //General fields
+  public    //General fields
     Model    : string;    //modelo de PIC
     frequen  : integer;   //frecuencia del reloj
     MaxFreq  : integer;   //Máxima frecuencia del reloj en Hz.
     //Propiedades que definen la arquitectura del CPU.
     MsjError: string;
-  public   //Execution control
+  public    //Execution control
     nClck   : Int64;    //Contador de ciclos de reloj
     CommStop: boolean;  //Bandera para detener la ejecución
     OnExecutionMsg: procedure(message: string) of object;  //Genera mensaje en ejecución
-  protected  //Generation of PRG files
+  public    //PRG files generation
     minUsed  : dword;         //Dirección menor de la ROM usada
     maxUsed  : dword;         //Dirección mayor de la ROM usdas
     hexLines : TStringList;  //Uusado para crear archivo *.hex
-  public  //Memories
+  public    //Memories
     ram    : TCPURam;   //RAM memory
     iRam   : integer;   //puntero a la memoria RAM, para escribir cuando se ensambla o compila código.
     function DisassemblerAt(addr: word; out nBytesProc: byte; useVarName: boolean
       ): string; virtual; abstract; //Desensambla la instrucción actual
-  public  //RAM memory functions
+  public    //RAM memory functions
     dataAddr1: integer;   //Start address for Data variables (-1 if not used). Used too as flag.
     dataAddr2: integer;   //End address for Data variables (-1 if not used)
     procedure ClearMemRAM;
@@ -134,7 +134,7 @@ type
     procedure WritePC(AValue: dword); virtual; abstract;
   public  //Others
 
-    procedure addTopLabel(lbl: string);  //Add a comment to the ASM code
+//    procedure addTopLabel(lbl: string);  //Add a comment to the ASM code
     procedure addTopComm(comm: string; replace: boolean = true);  //Add a comment to the ASM code
     procedure addSideComm(comm: string; before: boolean); //Add lateral comment to the ASM code
     procedure addPosInformation(rowSrc, colSrc: word; idFile: byte);
@@ -212,7 +212,7 @@ begin
     ram[i].name       :='';
     ram[i].shared     := false;
     ram[i].breakPnt   := false;
-    ram[i].topLabel   := '';
+//    ram[i].topLabel   := '';
     ram[i].sideComment:= '';
     ram[i].topComment := '';
     ram[i].idFile     := -1;        //Not initialized.
@@ -425,11 +425,11 @@ begin
   if aPC>=CPUMAXRAM then exit;
   ram[aPC].breakPnt := not ram[aPC].breakPnt;
 end;
-procedure TCPUCore.addTopLabel(lbl: string);
-begin
-  if iRam>=CPUMAXRAM then exit;
-  ram[iRam].topLabel := lbl;
-end;
+//procedure TCPUCore.addTopLabel(lbl: string);
+//begin
+//  if iRam>=CPUMAXRAM then exit;
+//  ram[iRam].topLabel := lbl;
+//end;
 procedure TCPUCore.addTopComm(comm: string; replace: boolean);
 {Agrega un comentario de línea al código en la posición de memoria actual}
 begin

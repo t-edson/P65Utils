@@ -201,8 +201,10 @@ type
     function ValidRAMaddr(addr: word): boolean;  //indica si una posición de memoria es válida
   public  //Methods to code instructions according to syntax
     disableCodegen: boolean;   //Flag to disable the Code generation.
-    procedure useRAMCode;
+    procedure useRAMCodeOp;
+    procedure useRAMCodeDa;
     procedure codByte(const value: byte; isData: boolean);
+    procedure codByte(const value: byte; used: TCPURamUsed; name: string = '');
     procedure codAsm(const inst: TP6502Inst; addMode: TP6502AddMode; param: word);
     procedure cod_JMP_at(iRam0: integer; const k: word);
     procedure cod_REL_JMP_at(iRam0: integer; const k: word);
@@ -210,6 +212,8 @@ type
   public  //Aditional methods
     function IsRelJump(idInst: TP6502Inst): boolean;  //Idnetify realtive jumps Opcodes
     procedure GenHex(hexFile: string; startAddr: integer = - 1);  //genera un archivo hex
+    function GetASMlineAt(addr: word; incAdrr, incValues, incCom,
+      incVarNam: boolean; out nBytes: byte): string;
     procedure DumpCodeAsm(lOut: TStrings; incAdrr, incValues, incCom,
       incVarNam: boolean);
   public  //Initialization
@@ -283,10 +287,15 @@ begin
   exit(false);
 end;
 { TP6502 }
-procedure TP6502.useRAMCode;
+procedure TP6502.useRAMCodeOp;
 {Set current position as used and increase the index iRam. If error;update "MsjError"}
 begin
-  ram[iRam].used := ruCode;  //Mark as used.
+  ram[iRam].used := ruCodeOp;  //Mark as used.
+  inc(iRam);
+end;
+procedure TP6502.useRAMCodeDa;
+begin
+  ram[iRam].used := ruCodeDa;  //Mark as used.
   inc(iRam);
 end;
 procedure TP6502.codByte(const value: byte; isData: boolean);
@@ -299,6 +308,18 @@ begin
   ram[iRam].value := value;
   if isData then ram[iRam].name := 'data';
   ram[iRam].used := ruData;  //Mark as used.
+  inc(iRam);
+end;
+procedure TP6502.codByte(const value: byte; used: TCPURamUsed; name: string = '');
+{Write a byte to the RAM memory.}
+begin
+  if iRam >= CPUMAXRAM then begin
+    MsjError := 'RAM Memory limit exceeded.';
+    exit;
+  end;
+  ram[iRam].value := value;
+  ram[iRam].used := used;  //Mark as used.
+  if name<>'' then ram[iRam].name := name;
   inc(iRam);
 end;
 procedure TP6502.codAsm(const inst: TP6502Inst; addMode: TP6502AddMode; param: word);
@@ -319,7 +340,7 @@ begin
     exit;
   end;
   ram[iRam].value := rInst.instrInform[addMode].Opcode;
-  useRAMCode;  //Set as used and increase index.
+  useRAMCodeOp;  //Set as used and increase index.
   //Encode parameters
   case addMode of
   aImplicit: begin
@@ -345,55 +366,55 @@ begin
       MsjError:= 'Invalid Address Mode (Immediate)';
     end;
     ram[iRam].value := lo(param);  //escribe parámetro
-    useRAMCode;
+    useRAMCodeDa;
   end;
   aAbsolute:begin
     ram[iRam].value := lo(param);
-    useRAMCode;
+    useRAMCodeDa;
     ram[iRam].value := hi(param);
-    useRAMCode;
+    useRAMCodeDa;
   end;
   aZeroPage:begin
     ram[iRam].value := lo(param);
-    useRAMCode;
+    useRAMCodeDa;
   end;
   aRelative:begin
     ram[iRam].value := lo(param);
-    useRAMCode;
+    useRAMCodeDa;
   end;
   aIndirect:begin
     ram[iRam].value := lo(param);
-    useRAMCode;
+    useRAMCodeDa;
     ram[iRam].value := hi(param);
-    useRAMCode;
+    useRAMCodeDa;
   end;
   aAbsolutX:begin
     ram[iRam].value := lo(param);
-    useRAMCode;
+    useRAMCodeDa;
     ram[iRam].value := hi(param);
-    useRAMCode;
+    useRAMCodeDa;
   end;
   aAbsolutY:begin
     ram[iRam].value := lo(param);
-    useRAMCode;
+    useRAMCodeDa;
     ram[iRam].value := hi(param);
-    useRAMCode;
+    useRAMCodeDa;
   end;
   aZeroPagX:begin
     ram[iRam].value := lo(param);
-    useRAMCode;
+    useRAMCodeDa;
   end;
   aZeroPagY:begin
     ram[iRam].value := lo(param);
-    useRAMCode;
+    useRAMCodeDa;
   end;
   aIndirecX:begin
     ram[iRam].value := lo(param);
-    useRAMCode;
+    useRAMCodeDa;
   end;
   aIndirecY:begin
     ram[iRam].value := lo(param);
-    useRAMCode;
+    useRAMCodeDa;
   end;
   else
     raise Exception.Create('Implementation Error.');
@@ -644,7 +665,7 @@ Falta implementar las operaciones, cuando acceden al registro INDF, el Watchdog 
 los contadores, las interrupciones}
 var
   opc: byte;
-  nCycles, nBytes, tmp, off: byte;
+  nCycles, nBytes, tmp, off, OP1, OP2: byte;
   target , addr: word;
   C_tmp: Boolean;
   tmpRes: integer;
@@ -675,15 +696,18 @@ begin
   //Execute
   case idIns of
   i_ADC: begin  //add with carry
+    OP1 := W;   //Keep operand.
+    OP2 := ram[addr].value;
     if STATUS_C then begin
-      tmpRes := W + ram[addr].value + 1;
+      tmpRes := W + OP2 + 1;
     end else begin
-      tmpRes := W + ram[addr].value;
+      tmpRes := W + OP2;
     end;
     W := tmpRes and $FF;
     STATUS_Z := W = 0;
     STATUS_N := W > 127;
     STATUS_C := tmpRes>255;
+    STATUS_V := ((OP1 XOR W) AND (OP2 XOR W) AND $80)<>0;   //Based on: http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html
   end;
   i_AND: begin  //and (with accumulator)
     W := W and ram[addr].value;
@@ -695,7 +719,7 @@ begin
     else tmp := ram[addr].value;
 
     STATUS_C := (tmp and $80) <> 0;  //Read bit 7
-    tmp := tmp << 1;
+    tmp := (tmp << 1) and $FF;
     STATUS_Z := tmp = 0;
     STATUS_N := tmp > 127;
 
@@ -711,8 +735,7 @@ begin
       end else begin
         PC.W := (PC.W + off) and $FFFF;
       end;
-      //Inc(PC.W, nBytes);  //No apply
-      Inc(nClck, nCycles);
+      Inc(nClck, nCycles + 1);  //Extra cycle in branch
       exit;
     end;
   end;
@@ -725,8 +748,7 @@ begin
       end else begin
         PC.W := (PC.W + off) and $FFFF;
       end;
-      //Inc(PC.W, nBytes);  //No apply
-      Inc(nClck, nCycles);
+      Inc(nClck, nCycles + 1);  //Extra cycle in branch
       exit;
     end;
   end;
@@ -739,8 +761,7 @@ begin
       end else begin
         PC.W := (PC.W + off) and $FFFF;
       end;
-      //Inc(PC.W, nBytes);  //No apply
-      Inc(nClck, nCycles);
+      Inc(nClck, nCycles + 1);  //Extra cycle in branch
       exit;
     end;
   end;
@@ -753,8 +774,7 @@ begin
       end else begin
         PC.W := (PC.W + off) and $FFFF;
       end;
-      //Inc(PC.W, nBytes);  //No apply
-      Inc(nClck, nCycles);
+      Inc(nClck, nCycles + 1);  //Extra cycle in branch
       exit;
     end;
   end;
@@ -772,8 +792,7 @@ begin
       end else begin
         PC.W := (PC.W + off) and $FFFF;
       end;
-      //Inc(PC.W, nBytes);  //No apply
-      Inc(nClck, nCycles);
+      Inc(nClck, nCycles + 1);  //Extra cycle in branch
       exit;
     end;
   end;
@@ -786,8 +805,7 @@ begin
       end else begin
         PC.W := (PC.W + off) and $FFFF;
       end;
-      //Inc(PC.W, nBytes);  //No apply
-      Inc(nClck, nCycles);
+      Inc(nClck, nCycles + 1);  //Extra cycle in branch
       exit;
     end;
   end;
@@ -811,8 +829,7 @@ begin
       end else begin
         PC.W := (PC.W + off) and $FFFF;
       end;
-      //Inc(PC.W, nBytes);  //No apply
-      Inc(nClck, nCycles);
+      Inc(nClck, nCycles + 1);  //Extra cycle in branch
       exit;
     end;
   end;
@@ -825,8 +842,7 @@ begin
       end else begin
         PC.W := (PC.W + off) and $FFFF;
       end;
-      //Inc(PC.W, nBytes);  //No apply
-      Inc(nClck, nCycles);
+      Inc(nClck, nCycles + 1);  //Extra cycle in branch
       exit;
     end;
   end;
@@ -918,7 +934,7 @@ begin
     exit;
   end;
   i_JSR: begin
-    inc(PC.W, 3);  //Next psoition
+    inc(PC.W, 3);  //Next position
     //Save return
     ram[$100 + SP].value := PC.H;
     if SP = $00 then SP := $FF else dec(SP);
@@ -930,17 +946,17 @@ begin
     Inc(nClck, nCycles);
     exit;
   end;  //jump subroutine
-  i_LDA: begin //load accumulator
+  i_LDA: begin //Load accumulator
     W := ram[addr].value;
     STATUS_Z := W = 0;
     STATUS_N := W > 127;
   end;
-  i_LDX: begin //load X
+  i_LDX: begin //Load X
     X := ram[addr].value;
     STATUS_Z := X = 0;
     STATUS_N := X > 127;
   end;
-  i_LDY: begin //load y
+  i_LDY: begin //Load y
     Y := ram[addr].value;
     STATUS_Z := Y = 0;
     STATUS_N := Y > 127;
@@ -958,28 +974,28 @@ begin
     else ram[addr].value := tmp;
   end;  //logical shift right
   i_NOP: ;  //no operation
-  i_ORA: begin  //or with accumulator
+  i_ORA: begin  //Or with accumulator
     W := W or ram[addr].value;
     STATUS_Z := W = 0;
     STATUS_N := W > 127;
   end;
-  i_PHA: begin //push accumulator
+  i_PHA: begin  //Push accumulator
     ram[$100 + SP].value := W;
     if SP = $00 then SP := $FF else dec(SP);
   end;
-  i_PHP: begin  //push processor status (SR)
+  i_PHP: begin  //Push processor status (SR)
     ram[$100 + SP].value := STATUS;
     if SP = $00 then SP := $FF else dec(SP);
   end;
-  i_PLA: begin  //pull accumulator
+  i_PLA: begin  //Pull accumulator
     if SP = $FF then SP := $00 else inc(SP);
     W := ram[$100 + SP].value;
   end;
-  i_PLP: begin  //pull processor status (SR)
+  i_PLP: begin  //Pull processor status (SR)
     if SP = $FF then SP := $00 else inc(SP);
     SR := ram[$100 + SP].value;
   end;
-  i_ROL: begin  //rotate left
+  i_ROL: begin  //Rotate left
     STATUS_N := false;
     if modIns = aAcumulat then tmp := W
     else tmp := ram[addr].value;
@@ -994,7 +1010,7 @@ begin
     if modIns = aAcumulat then W := tmp
     else ram[addr].value := tmp;
   end;
-  i_ROR: begin  //rotate right
+  i_ROR: begin  //Rotate right
     STATUS_N := false;
     if modIns = aAcumulat then  tmp := W
     else tmp := ram[addr].value;
@@ -1009,7 +1025,7 @@ begin
     if modIns = aAcumulat then  W := tmp
     else ram[addr].value := tmp;
   end;
-  i_RTI: begin  //return from interrupt
+  i_RTI: begin  //Return from interrupt
     if SP = $FF then SP := $00 else inc(SP);
     SR := ram[$100 + SP].value;
     if SP = $FF then SP := $00 else inc(SP);
@@ -1020,7 +1036,7 @@ begin
     Inc(nClck, nCycles);
     exit;
   end;
-  i_RTS: begin  //return from subroutine
+  i_RTS: begin  //Return from subroutine
     if SP = $FF then SP := $00 else inc(SP);
     PC.L := ram[$100 + SP].value;
     if SP = $FF then SP := $00 else inc(SP);
@@ -1029,16 +1045,19 @@ begin
     Inc(nClck, nCycles);
     exit;
   end;
-  i_SBC: begin  //subtract with carry
+  i_SBC: begin  //Subtract with carry
+    OP1 := W;   //Keep operand.
+    OP2 := ram[addr].value;
     if STATUS_C then begin
-      tmpRes := W - ram[addr].value - 1;
+      tmpRes := W - OP2;
     end else begin
-      tmpRes := W - ram[addr].value;
+      tmpRes := W - OP2 - 1;
     end;
     W := tmpRes and $FF;
     STATUS_Z := W = 0;
     STATUS_N := W > 127;
-    STATUS_C := tmpRes<0;
+    STATUS_C := not (tmpRes<0);
+    STATUS_V := ((OP1 XOR W) AND (OP2 XOR W) AND $80)<>0;   //Based on: http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html
   end;
   i_SEC: STATUS_C := true;  //set carry
   i_SED: STATUS_D := true;  //set decimal
@@ -1093,12 +1112,22 @@ procedure TP6502.ExecTo(endAdd: word);
 contador del programa, sea igual a la dirección "endAdd".}
 begin
   //Hace una primera ejecución, sin verificar Breakpoints
+  if ram[PC.W].used = ruUnused then begin
+    //Encontró un BreakPoint, sale sin ejecutar esa instrucción
+    if OnExecutionMsg<>nil then OnExecutionMsg('Stopped. Unused RAM location.');
+    exit;
+  end;
   Exec(PC.W);
   //Ejecuta cíclicamnente
   while PC.W <> endAdd do begin
     if ram[PC.W].breakPnt then begin
       //Encontró un BreakPoint, sale sin ejecutar esa instrucción
       if OnExecutionMsg<>nil then OnExecutionMsg('Stopped for breakpoint.');
+      exit;
+    end;
+    if ram[PC.W].used = ruUnused then begin
+      //Encontró un BreakPoint, sale sin ejecutar esa instrucción
+      if OnExecutionMsg<>nil then OnExecutionMsg('Stopped. Unused RAM location.');
       exit;
     end;
     //Ejecuta
@@ -1298,13 +1327,48 @@ begin
   if addr > CPUMAXRAM then exit(false);   //excede límite
   exit(true);
 end;
+function TP6502.GetASMlineAt(addr: word;
+     incAdrr, incValues, incCom, incVarNam: boolean; out nBytes: byte): string;
+{Returns a line of text with an ASM instruction.}
+var
+  opCode, comLat: string;
+begin
+  comLat := ram[addr].sideComment;
+  //Decodifica instrucción
+  opCode := DisassemblerAt(addr, nBytes, incVarNam);  //Instrucción
+  //Verificas si incluye dirección física
+  Result := '';
+  if incAdrr then  begin
+    //Agrega dirección al inicio
+    Result := '$'+IntToHex(addr,4) + ' ';
+  end;
+  if incValues then begin
+    //Agrega bytes después
+    if nBytes = 1 then begin
+        Result := Result + IntToHex(ram[addr].value, 2) + '       ' ;
+    end else if nBytes = 2  then begin
+        Result := Result + IntToHex(ram[addr].value, 2) + ' ' +
+                     IntToHex(ram[addr+1].value, 2) + '    ';
+    end else if nBytes = 3 then begin
+        Result := Result + IntToHex(ram[addr].value, 2) + ' ' +
+                     IntToHex(ram[addr+1].value, 2) + ' ' +
+                     IntToHex(ram[addr+2].value, 2) + ' ';
+    end;
+  end;
+  Result := Result + opCode;
+  //Check if there is lateral comment
+  if incCom then begin
+    Result := Result  + ' ' + comLat;
+  end;
+end;
 procedure TP6502.DumpCodeAsm(lOut: TStrings;
                              incAdrr, incValues, incCom, incVarNam: boolean);
 {Desensambla las instrucciones grabadas en el PIC.
- Se debe llamar despues de llamar a GenHex(), para que se actualicen las variables}
+ Se debe llamar despues de llamar a GenHex(), para que se actualicen las variables
+ minUsed y maxUsed.}
 var
   i: Word;
-  lblLin, comLat, comLin, lin, opCode: String;
+  lblLin, comLin, lin: String;
   nBytes: byte;
 const
   SPACEPAD = '      ';
@@ -1317,59 +1381,31 @@ begin
   end;
   i := minUsed;
   while i <= maxUsed do begin
-    //Lee comentarios y etiqueta
-    lblLin := ram[i].topLabel;
-    comLat := ram[i].sideComment;
+    //Read label and comments.
+    lblLin := ram[i].name;
     comLin := ram[i].topComment;
-    //Verifica si es variable
+    //Check RAM position.
     if ram[i].used in [ruData, ruAbsData] then begin
-      //Escribe en forma de variable
+      //Must be a variable.
       if incAdrr then begin
         if comLin<>'' then lOut.add(comLin);
-        //lOut.Add( PadRight(ram[i].name, Length(SPACEPAD)) + '$'+IntToHex(i,4) + ' DB ??');
-        lOut.Add( PadRight(ram[i].name, Length(SPACEPAD)) + '$'+IntToHex(i,4) + ' DB ' +
+        lOut.Add( PadRight(lblLin, Length(SPACEPAD)) + '$'+IntToHex(i,4) + ' DB ' +
                   IntToHEx(ram[i].value,2) );
       end else begin
-        //lOut.Add( PadRight(ram[i].name, Length(SPACEPAD)) + 'DB ??');
-        lOut.Add( PadRight(ram[i].name, Length(SPACEPAD)) + 'DB ' + IntToHEx(ram[i].value,2) );
+        lOut.Add( PadRight(lblLin, Length(SPACEPAD)) + 'DB ' + IntToHEx(ram[i].value,2) );
       end;
       i := i + 1;
-      continue;
-    end;
-    //Escribe etiqueta al inicio de línea
-    if lblLin<>'' then lOut.Add(lblLin+':');
-    //Escribe comentario al inicio de línea
-    if incCom and (comLin<>'') then  begin
-      lOut.Add(comLin);
-    end;
-    //Decodifica instrucción
-    opCode := DisassemblerAt(i, nBytes, incVarNam);  //Instrucción
-    //Verificas si incluye dirección física
-    lin := '';
-    if incAdrr then  begin
-      //Agrega dirección al inicio
-      lin := '$'+IntToHex(i,4) + ' ';
-    end;
-    if incValues then begin
-      //Agrega bytes después
-      if nBytes = 1 then begin
-          lin := lin + IntToHex(ram[i].value, 2) + '       ' ;
-      end else if nBytes = 2  then begin
-          lin := lin + IntToHex(ram[i].value, 2) + ' ' +
-                       IntToHex(ram[i+1].value, 2) + '    ';
-      end else if nBytes = 3 then begin
-          lin := lin + IntToHex(ram[i].value, 2) + ' ' +
-                       IntToHex(ram[i+1].value, 2) + ' ' +
-                       IntToHex(ram[i+2].value, 2) + ' ';
+    end else begin
+      //Debe ser código o memoria sin usar.
+      if lblLin<>'' then lOut.Add(lblLin+':');  //Etiqueta al inicio de línea
+      //Escribe comentario al inicio de línea
+      if incCom and (comLin<>'') then  begin
+        lOut.Add(comLin);
       end;
+      lin := GetASMlineAt(i, incAdrr, incValues, incCom, incVarNam, nBytes);
+      lOut.Add(SPACEPAD + lin);
+      i := i + nBytes;   //Incrementa a siguiente instrucción
     end;
-    lin := lin + opCode;
-    //Verifica si incluye comentario lateral
-    if incCom then begin
-      lin := lin  + ' ' + comLat;
-    end;
-    lOut.Add(SPACEPAD + lin);
-    i := i + nBytes;   //Incrementa a siguiente instrucción
   end;
 end;
 procedure TP6502.GenHex(hexFile: string; startAddr: integer = -1);
@@ -1386,7 +1422,7 @@ begin
     maxUsed := 0;
     for i := 0 to CPUMAXRAM-1 do begin
       //if ram[i].used in [ruCode, ruData] then begin //Changed in versión 0.7.1
-      if ram[i].used in [ruCode] then begin
+      if ram[i].used in [ruCodeOp, ruCodeDa] then begin
         if i<minUsed then minUsed := i;
         if i>maxUsed then maxUsed := i;
       end;
@@ -1397,7 +1433,7 @@ begin
     maxUsed := 0;
     for i := minUsed to CPUMAXRAM-1 do begin
       //if ram[i].used in [ruCode, ruData] then begin //Changed in versión 0.7.1
-      if ram[i].used in [ruCode] then begin
+      if ram[i].used in [ruCodeOp, ruCodeDa] then begin
         if i>maxUsed then maxUsed := i;
       end;
     end;
@@ -1431,9 +1467,6 @@ begin
   inherited Destroy;
 end;
 procedure InitTables;
-var
-  i : TP6502Inst;
-  j : TP6502AddMode;
 begin
   ///////////////////////////////////////////////////////////////////
   ////////////////// Set instructions information ///////////////////
